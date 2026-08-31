@@ -1,0 +1,2959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dev Music Hub</title>
+<script>
+  /* =========================================================
+     BACKEND API CONFIGURATION
+     Set this to your deployed backend's URL before shipping to
+     production (e.g. after deploying to Render/Railway/Fly).
+     Leave it empty ('') if the frontend and backend are served
+     from the exact same origin. On localhost this is ignored —
+     the app talks to http://localhost:4000 automatically.
+     ========================================================= */
+  window.DMH_API_BASE = ''; // e.g. 'https://dev-music-hub-api.onrender.com'
+</script>
+<script>
+  /* Apply saved theme before first paint to avoid a flash of the wrong theme */
+  (function(){
+    try{
+      var t = JSON.parse(localStorage.getItem('dmh_theme'));
+      document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark');
+    }catch(e){ document.documentElement.setAttribute('data-theme','dark'); }
+  })();
+</script>
+<style>
+  :root{
+    --bg: #0b0b10;
+    --surface: #14141c;
+    --surface-2: #1c1c26;
+    --border: #26262f;
+    --text: #f2f1f7;
+    --muted: #8a8894;
+    --accent-a: #8b5cf6;
+    --accent-b: #ec4899;
+    --accent-grad: linear-gradient(135deg, var(--accent-a), var(--accent-b));
+    --danger: #ef4444;
+    --radius: 14px;
+    --nav-w: 240px;
+    --player-h: 88px;
+    --header-h: 64px;
+  }
+  :root[data-theme="light"]{
+    --bg: #f4f4f9;
+    --surface: #ffffff;
+    --surface-2: #f0eef7;
+    --border: #e2e0eb;
+    --text: #17161d;
+    --muted: #6b6876;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg); color: var(--text); overflow-x:hidden;
+    transition: background .2s ease, color .2s ease;
+  }
+  ::-webkit-scrollbar{ height:6px; width:6px; }
+  ::-webkit-scrollbar-thumb{ background: var(--surface-2); border-radius:10px; }
+  a{ color:inherit; text-decoration:none; }
+  button{ font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+  img{ display:block; }
+  .hidden{ display:none !important; }
+  input,textarea{ font-family:inherit; }
+
+  /* ---------------- TOP HEADER ---------------- */
+  .topheader{
+    position:fixed; top:0; left:0; right:0; height: var(--header-h); z-index: 50;
+    background: rgba(11,11,16,.9); backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+    display:flex; align-items:center; gap:18px; padding: 0 20px;
+  }
+  .header-left{ display:flex; align-items:center; gap:14px; flex-shrink:0; }
+  .header-hamburger{ display:none; flex-direction:column; gap:4px; padding:8px; }
+  .header-hamburger span{ width:20px; height:2px; background:var(--text); border-radius:2px; }
+
+  .brand-row{ display:flex; align-items:center; gap:11px; perspective:400px; }
+  .brand-text{
+    font-size: 1.2rem; font-weight:900; letter-spacing:.03em; font-family: Georgia, "Times New Roman", serif;
+    background: var(--accent-grad); background-size:200% auto;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    animation: shimmer 6s ease-in-out infinite;
+    text-shadow: 0 0 22px rgba(139,92,246,.25);
+  }
+  @keyframes shimmer{ 0%,100%{ background-position: 0% center; } 50%{ background-position: 100% center; } }
+
+  .header-search{ flex:1; max-width:560px; }
+  .header-search input{
+    width:100%; padding:14px 20px; border-radius:999px; background: var(--surface-2);
+    border:1px solid var(--border); color:var(--text); font-size:1rem; outline:none; transition: border-color .15s ease;
+  }
+  .header-search input:focus{ border-color: var(--accent-a); }
+  .header-right{ display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0; position:relative; }
+  .header-icon-btn{
+    width:38px; height:38px; border-radius:50%; background: var(--surface-2); border:1px solid var(--border);
+    display:flex; align-items:center; justify-content:center; font-size:1rem; transition: all .15s ease; overflow:hidden;
+  }
+  .header-icon-btn:hover{ border-color: var(--accent-a); }
+  .header-icon-btn.active{ color: var(--accent-a); border-color: var(--accent-a); }
+  .header-icon-btn img{ width:100%; height:100%; object-fit:cover; }
+
+  .profile-pop{
+    position:absolute; top:48px; right:0; width:230px; background: var(--surface); border:1px solid var(--border);
+    border-radius:14px; padding:16px; display:none; z-index:55; box-shadow: 0 12px 30px rgba(0,0,0,.4);
+  }
+  .profile-pop.open{ display:block; }
+  .profile-pop .pname{ font-weight:800; font-size:.9rem; }
+  .profile-pop .pemail{ color:var(--muted); font-size:.75rem; margin-top:2px; }
+  .profile-pop .prole{ display:inline-block; margin-top:8px; font-size:.65rem; font-weight:800; text-transform:uppercase; letter-spacing:.05em; padding:3px 9px; border-radius:999px; background: var(--accent-grad); color:#fff; }
+  .profile-pop button{ margin-top:12px; width:100%; padding:9px; border-radius:9px; background: var(--surface-2); border:1px solid var(--border); font-size:.8rem; font-weight:700; }
+  .profile-pop button:hover{ border-color: var(--accent-a); }
+
+  /* ---------------- APP LAYOUT ---------------- */
+  .app{ display:flex; min-height:100vh; padding-top: var(--header-h); }
+
+  .sidebar{
+    width: var(--nav-w); flex-shrink:0; background: var(--surface); border-right: 1px solid var(--border);
+    padding: 22px 18px; position:fixed; top: var(--header-h); left:0; bottom:0; overflow-y:auto;
+  }
+  .nav-list{ list-style:none; display:flex; flex-direction:column; gap:4px; }
+  .nav-item{
+    display:flex; align-items:center; gap:12px; padding: 11px 12px; border-radius: 10px; cursor:pointer;
+    color: var(--muted); font-weight:600; font-size: 0.92rem; transition: background .18s ease, color .18s ease, transform .18s ease;
+  }
+  .nav-item .ic{ width:20px; text-align:center; font-size:1rem; }
+  .nav-item:hover{ background: var(--surface-2); color: var(--text); }
+  .nav-item.active{ background: var(--surface-2); color:var(--text); }
+  .nav-item.active .ic{ filter: drop-shadow(0 0 6px rgba(139,92,246,.6)); }
+  .nav-item:active{ transform: scale(.98); }
+  .nav-divider{ height:1px; background: var(--border); margin:8px 4px; }
+
+  .main-wrap{ flex:1; min-width:0; margin-left: var(--nav-w); }
+  .main{ padding: 26px 32px calc(var(--player-h) + 40px); }
+  .section-title{ font-size: 1.05rem; font-weight: 700; margin: 30px 0 14px; display:flex; align-items:center; justify-content:space-between; }
+  .section-title span.tag{ font-size:.72rem; color: var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
+  .view-heading{ font-size:1.3rem; font-weight:800; margin-bottom:6px; }
+  .view-sub{ color:var(--muted); font-size:.85rem; margin-bottom:22px; }
+  .back-btn{ display:inline-flex; align-items:center; gap:6px; color:var(--muted); font-size:.82rem; font-weight:700; margin-bottom:14px; }
+  .back-btn:hover{ color:var(--text); }
+
+  /* ---------------- HERO CARD CAROUSEL ---------------- */
+  .hero-wrap{ display:flex; flex-direction:column; align-items:center; gap:14px; }
+  .hero{ position:relative; height: 300px; border-radius: 20px; overflow:hidden; width:100%; }
+  .hero-cards{ display:flex; height:100%; transition: transform .6s ease; }
+  .hero-card{
+    flex: 0 0 86%; margin: 0 2%; border-radius: 18px; overflow:hidden; position:relative;
+    background: var(--surface); transform: scale(.96); transition: transform .5s ease, opacity .5s ease; opacity:.55;
+  }
+  .hero-card.active{ transform: scale(1); opacity:1; }
+  .hero-card img{ width:100%; height:100%; object-fit:cover; filter: brightness(.55); }
+  .hero-info{ position:absolute; left:24px; bottom:22px; right:24px; display:flex; align-items:flex-end; justify-content:space-between; gap:12px; }
+  .hero-info h3{ font-size:1.25rem; font-weight:800; }
+  .hero-info p{ color: var(--muted); font-size:.82rem; margin-top:4px; }
+  .hero-play{
+    width:48px; height:48px; border-radius:50%; background: var(--accent-grad); display:flex; align-items:center; justify-content:center;
+    font-size:1.05rem; flex-shrink:0; box-shadow: 0 8px 24px rgba(139,92,246,.35); transition: transform .15s ease;
+  }
+  .hero-play:hover{ transform: scale(1.06); }
+  .hero-dots{ display:flex; gap:7px; justify-content:center; align-items:center; }
+  .hero-dot{ width:7px; height:7px; border-radius:50%; background: var(--surface-2); border:1px solid var(--border); cursor:pointer; transition: background .25s ease, width .25s ease; }
+  .hero-dot.active{ background: var(--accent-grad); width:22px; border-radius:5px; border-color: transparent; }
+  .hero-empty{ height:180px; display:flex; align-items:center; justify-content:center; border-radius:20px; background: var(--surface); border:1px dashed var(--border); color:var(--muted); font-size:.85rem; width:100%; }
+
+  /* ---------------- CATEGORY PILLS (home quick filter) ---------------- */
+  .categories{ display:flex; gap:10px; overflow-x:auto; padding-bottom:6px; scrollbar-width:none; }
+  .categories::-webkit-scrollbar{ display:none; }
+  .pill{
+    flex-shrink:0; padding: 9px 18px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border);
+    color: var(--muted); font-weight:600; font-size:.83rem; transition: all .18s ease; white-space:nowrap;
+  }
+  .pill:hover{ color:var(--text); border-color: var(--accent-a); }
+  .pill.active{ background: var(--accent-grad); color:#fff; border-color: transparent; }
+
+  /* ---------------- CIRCULAR CATEGORY GRID (Categories/Artists view) ---------------- */
+  .circle-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(120px,1fr)); gap:22px; }
+  .circle-card{ display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center; cursor:pointer; }
+  .circle-photo{ width:100px; height:100px; border-radius:50%; overflow:hidden; border:2px solid var(--border); transition: border-color .2s ease; background:var(--surface-2); }
+  .circle-card:hover .circle-photo{ border-color: var(--accent-a); }
+  .circle-photo img{ width:100%; height:100%; object-fit:cover; }
+  .circle-name{ font-size:.85rem; font-weight:700; }
+
+  /* ---------------- PLAYLIST CARDS (cover + name) ---------------- */
+  .playlist-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(170px,1fr)); gap:18px; }
+  .playlist-card{
+    background: var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden;
+    transition: all .18s ease; text-align:left; cursor:pointer;
+  }
+  .playlist-card:hover{ border-color: var(--accent-a); transform: translateY(-2px); }
+  .playlist-cover{ width:100%; aspect-ratio:1/1; overflow:hidden; background:var(--surface-2); }
+  .playlist-cover img{ width:100%; height:100%; object-fit:cover; }
+  .playlist-name{ font-weight:700; font-size:.88rem; padding:10px 12px; }
+  .add-playlist-card{
+    display:flex; align-items:center; justify-content:center; flex-direction:column; gap:8px; min-height:150px;
+    border:1.5px dashed var(--border); border-radius:16px; color:var(--muted); font-weight:700; font-size:.85rem; transition: all .18s ease; cursor:pointer;
+  }
+  .add-playlist-card:hover{ border-color: var(--accent-a); color: var(--text); }
+
+  /* ---------------- HOME: SINGLE-LINE SONG ROW + ARROWS ---------------- */
+  .songs-row-wrap{ position:relative; }
+  .songs-row{ display:flex; gap:12px; overflow-x:auto; scroll-behavior:smooth; scrollbar-width:none; padding:2px; }
+  .songs-row::-webkit-scrollbar{ display:none; }
+  .song-line{
+    flex: 0 0 auto; width: 280px; display:flex; align-items:center; gap:12px; background: var(--surface);
+    border:1px solid transparent; border-radius:12px; padding:8px 12px 8px 8px; transition: all .18s ease; cursor:pointer;
+  }
+  .song-line:hover{ background: var(--surface-2); border-color: var(--border); }
+  .song-line.playing{ border-color: var(--accent-a); }
+  .song-line img{ width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+  .row-arrow{
+    position:absolute; top:50%; transform:translateY(-50%); width:36px; height:36px; border-radius:50%;
+    background: var(--surface-2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center;
+    font-size:.95rem; z-index:3; transition: all .15s ease;
+  }
+  .row-arrow:hover{ border-color: var(--accent-a); }
+  .row-arrow.left{ left:-6px; } .row-arrow.right{ right:-6px; }
+  @media (max-width: 880px){ .row-arrow{ display:none; } }
+
+  /* ---------------- VERTICAL DRILL-DOWN LIST ---------------- */
+  .vlist{ display:flex; flex-direction:column; gap:8px; }
+  .song-vrow{
+    display:flex; align-items:center; gap:14px; background: var(--surface); border:1px solid transparent;
+    border-radius:12px; padding:10px 14px; transition: all .18s ease; cursor:pointer;
+  }
+  .song-vrow:hover{ background: var(--surface-2); border-color: var(--border); }
+  .song-vrow.playing{ border-color: var(--accent-a); }
+  .song-vrow img{ width:48px; height:48px; border-radius:9px; object-fit:cover; flex-shrink:0; }
+  .song-vrow .info{ flex:1; min-width:0; }
+  .song-vrow .info .t{ font-size:.9rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .song-vrow .info .a{ font-size:.78rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* shared song meta bits */
+  .info{ min-width:0; flex:1; }
+  .info .t{ font-size:.85rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .info .a{ font-size:.74rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row-like{ font-size:.95rem; flex-shrink:0; padding:4px; transition: transform .15s ease; }
+  .row-like:active{ transform: scale(1.3); }
+  .row-like.liked{ filter: drop-shadow(0 0 6px rgba(236,72,153,.7)); }
+  .row-remove{ font-size:.85rem; flex-shrink:0; padding:4px; color: var(--danger); }
+  .play-mini{ font-size:.85rem; color:var(--muted); flex-shrink:0; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+  .song-line:hover .play-mini, .song-vrow:hover .play-mini{ background: var(--accent-grad); color:#fff; }
+  .empty-note{ color:var(--muted); font-size:.85rem; }
+
+  /* ---------------- PLAYER BAR ---------------- */
+  .player{
+    position:fixed; left:0; right:0; bottom:0; height: var(--player-h); background: var(--surface); border-top: 1px solid var(--border);
+    display:grid; grid-template-columns: 1fr 1.6fr 1fr; align-items:center; padding: 0 20px; gap: 16px; z-index: 40;
+  }
+  .player-track{ display:flex; align-items:center; gap:12px; min-width:0; }
+  .thumb-wrap{ position:relative; flex-shrink:0; border-radius:9px; }
+  .thumb-wrap::after{ content:''; position:absolute; inset:-5px; border-radius:12px; background: var(--accent-grad); opacity:0; filter: blur(11px); z-index:0; transition: opacity .3s ease; pointer-events:none; }
+  .player.is-playing .thumb-wrap::after{ opacity:.55; animation: djGlow 1.6s ease-in-out infinite; }
+  .player-track img{ width:52px; height:52px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--surface-2); position:relative; z-index:1; transition: opacity .25s ease, transform .25s ease; }
+  .player-track img.fade{ opacity:0; transform: scale(.93); }
+  @keyframes djGlow{ 0%,100%{ opacity:.35; } 50%{ opacity:.7; } }
+  .eq-bars{ position:absolute; right:-3px; bottom:-3px; display:flex; align-items:flex-end; gap:1.5px; height:14px; width:14px; padding:1px; background: var(--surface); border-radius:4px; z-index:2; opacity:0; transition: opacity .2s ease; }
+  .player.is-playing .eq-bars{ opacity:1; }
+  .eq-bars span{ display:block; width:2.5px; background: var(--accent-grad); border-radius:2px; height:3px; }
+  .player.is-playing .eq-bars span{ animation: eqBounce .9s ease-in-out infinite; }
+  .player.is-playing .eq-bars span:nth-child(1){ animation-delay: 0s; }
+  .player.is-playing .eq-bars span:nth-child(2){ animation-delay: .2s; }
+  .player.is-playing .eq-bars span:nth-child(3){ animation-delay: .1s; }
+  @keyframes eqBounce{ 0%,100%{ height:3px; } 50%{ height:11px; } }
+  .player-track .meta{ min-width:0; transition: opacity .25s ease, transform .25s ease; }
+  .player-track .meta.fade{ opacity:0; transform: translateY(4px); }
+  .player-track .meta .t{ font-size:.88rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .player-track .meta .a{ font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .like-btn{ font-size:1.05rem; flex-shrink:0; transition: transform .15s ease; }
+  .like-btn:active{ transform: scale(1.3); }
+  .like-btn.liked{ filter: drop-shadow(0 0 6px rgba(236,72,153,.7)); }
+  .player-center{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; }
+  .controls{ display:flex; align-items:center; gap:18px; }
+  .controls button{ font-size:1rem; color: var(--muted); transition: color .15s ease, transform .15s ease; }
+  .controls button:hover{ color: var(--text); }
+  .controls .play-pause{ width:36px; height:36px; border-radius:50%; background: var(--accent-grad); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
+  .seek-row{ display:flex; align-items:center; gap:8px; width:100%; max-width:420px; }
+  .seek-row .time{ font-size:.7rem; color:var(--muted); width:34px; text-align:center; flex-shrink:0; }
+  .seek-bar{ flex:1; height:4px; background: var(--surface-2); border-radius:4px; position:relative; cursor:pointer; }
+  .seek-fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background: var(--accent-grad); border-radius:4px; }
+  .player-right{ display:flex; align-items:center; justify-content:flex-end; gap:16px; }
+  .player-right button{ font-size:.95rem; color:var(--muted); transition: color .15s ease; }
+  .player-right button.active{ color: var(--accent-a); }
+  .player-right button:hover{ color:var(--text); }
+  .volume-row{ display:flex; align-items:center; gap:6px; }
+  .volume-row input[type=range]{ width:80px; accent-color: var(--accent-a); }
+
+  /* ---------------- MODALS ---------------- */
+  .modal-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index: 100; padding:20px; backdrop-filter: blur(3px); }
+  .modal-backdrop.open{ display:flex; }
+  .modal{ background: var(--surface); border: 1px solid var(--border); border-radius: 18px; width: 100%; max-width: 440px; padding: 26px; max-height:88vh; overflow-y:auto; animation: pop .2s ease; }
+  .modal.wide{ max-width: 600px; }
+  @keyframes pop{ from{ transform: scale(.94); opacity:0;} to{ transform:scale(1); opacity:1; } }
+  .modal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+  .modal-head h3{ font-size:1.1rem; font-weight:800; }
+  .modal-close{ font-size:1.2rem; color: var(--muted); }
+  .modal-close:hover{ color:var(--text); }
+  .field{ margin-bottom:14px; }
+  .field label{ font-size:.78rem; font-weight:600; color: var(--muted); display:block; margin-bottom:6px; }
+  .field input, .field textarea, .field select{ width:100%; padding:11px 13px; border-radius:10px; background: var(--surface-2); border:1px solid var(--border); color: var(--text); font-size:.9rem; outline:none; transition: border-color .15s ease; resize:vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus{ border-color: var(--accent-a); }
+  .field small{ color:var(--muted); font-size:.7rem; }
+  .avatar-upload{ display:flex; align-items:center; gap:14px; margin-bottom:16px; }
+  .avatar-preview{ width:56px; height:56px; border-radius:50%; background: var(--surface-2); display:flex; align-items:center; justify-content:center; overflow:hidden; border: 1px dashed var(--border); font-size:1.3rem; color:var(--muted); flex-shrink:0; }
+  .avatar-preview img{ width:100%; height:100%; object-fit:cover; }
+  .file-btn{ padding:9px 14px; border-radius:9px; background: var(--surface-2); border:1px solid var(--border); font-size:.8rem; font-weight:600; display:inline-block; cursor:pointer; }
+  .file-btn:hover{ border-color: var(--accent-a); }
+  .submit-btn{ width:100%; padding:12px; border-radius:11px; background: var(--accent-grad); color:#fff; font-weight:700; font-size:.92rem; margin-top: 6px; transition: filter .15s ease; }
+  .submit-btn:hover{ filter: brightness(1.08); }
+  .ghost-btn{ width:100%; padding:11px; border-radius:11px; background: var(--surface-2); border:1px solid var(--border); font-weight:700; font-size:.86rem; margin-top:8px; }
+  .ghost-btn:hover{ border-color: var(--accent-a); }
+  .form-error{ color: var(--danger); font-size:.76rem; margin-top:8px; min-height:14px; }
+  .form-ok{ color:#34d399; font-size:.76rem; margin-top:8px; min-height:14px; }
+
+  /* ---------------- YOUTUBE SEARCH ---------------- */
+  .yt-search-row{ display:flex; gap:10px; margin-bottom:6px; }
+  .yt-search-row input{
+    flex:1; padding:14px 18px; border-radius:12px; background: var(--surface-2);
+    border:1px solid var(--border); color:var(--text); font-size:1rem; outline:none; transition: border-color .15s ease;
+  }
+  .yt-search-row input:focus{ border-color: var(--accent-a); }
+  .yt-search-row button{ flex-shrink:0; padding:0 18px; border-radius:10px; background: var(--accent-grad); color:#fff; font-weight:700; font-size:.85rem; }
+  .yt-results-list{ display:flex; flex-direction:column; gap:8px; margin-top:14px; max-height:360px; overflow-y:auto; }
+  .yt-result-row img{ width:64px; height:40px; border-radius:6px; object-fit:cover; flex-shrink:0; background:var(--surface); }
+  .bulk-progress{ font-size:.78rem; color:var(--muted); margin-top:10px; min-height:16px; }
+  .api-key-note{ color:var(--muted); font-size:.76rem; line-height:1.6; margin-bottom:12px; }
+
+  .settings-list{ display:flex; flex-direction:column; gap:8px; }
+  .settings-item{ display:flex; align-items:center; gap:12px; padding: 12px 14px; border-radius:11px; background: var(--surface-2); border:1px solid var(--border); font-size:.88rem; font-weight:600; transition: border-color .15s ease; width:100%; text-align:left; }
+  .settings-item:hover{ border-color: var(--accent-a); }
+  .settings-item.highlight{ background: linear-gradient(135deg, rgba(139,92,246,.15), rgba(236,72,153,.15)); border-color: var(--accent-a); }
+  .settings-item.danger{ color:#fca5a5; }
+  .settings-item .ic{ width:18px; text-align:center; }
+
+  /* ---------------- ROLE TABS (login) ---------------- */
+  .role-tabs{ display:flex; gap:8px; margin-bottom:18px; background: var(--surface-2); padding:4px; border-radius:11px; }
+  .role-tab{ flex:1; padding:9px; border-radius:8px; font-weight:700; font-size:.82rem; color:var(--muted); text-align:center; }
+  .role-tab.active{ background: var(--accent-grad); color:#fff; }
+
+  /* ---------------- DASHBOARD ---------------- */
+  .dash-layout{ display:flex; gap:26px; align-items:flex-start; }
+  .dash-tabs{ width:210px; flex-shrink:0; display:flex; flex-direction:column; gap:4px; }
+  .dash-tab{ display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px; color:var(--muted); font-weight:600; font-size:.85rem; text-align:left; }
+  .dash-tab:hover{ background:var(--surface-2); color:var(--text); }
+  .dash-tab.active{ background: var(--surface-2); color:var(--text); border:1px solid var(--accent-a); }
+  .dash-content{ flex:1; min-width:0; }
+  @media (max-width: 880px){ .dash-layout{ flex-direction:column; } .dash-tabs{ width:100%; flex-direction:row; flex-wrap:wrap; } }
+
+  .dash-card{ background: var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px; margin-bottom:20px; }
+  .dash-card h4{ font-size:.95rem; font-weight:800; margin-bottom:14px; }
+  .admin-form-row{ display:grid; grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); gap:12px; align-items:end; }
+  .admin-list{ display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .admin-row{ display:flex; align-items:center; gap:12px; background: var(--surface-2); border:1px solid var(--border); border-radius:11px; padding:9px 12px; cursor:pointer; }
+  .admin-row:hover{ border-color: var(--accent-a); }
+  .admin-thumb{ width:40px; height:40px; border-radius:8px; object-fit:cover; flex-shrink:0; background:var(--surface); }
+  .admin-thumb.round{ border-radius:50%; }
+  .admin-row .info{ flex:1; min-width:0; }
+  .admin-row .info .t{ font-size:.85rem; font-weight:700; }
+  .admin-row .info .a{ font-size:.72rem; color:var(--muted); }
+  .admin-row button.row-remove{ font-size:.8rem; font-weight:700; color:var(--danger); padding:6px 10px; border-radius:8px; background:rgba(239,68,68,.1); }
+  .admin-row button.row-remove:hover{ background:rgba(239,68,68,.2); }
+
+  .stat-grid{ display:grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap:14px; margin-bottom:20px; }
+  .stat-card{ background: var(--surface); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  .stat-card .num{ font-size:1.5rem; font-weight:900; background: var(--accent-grad); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .stat-card .lbl{ font-size:.74rem; color:var(--muted); font-weight:600; margin-top:4px; text-transform:uppercase; letter-spacing:.04em; }
+  .stat-card.clickable{ cursor:pointer; transition: border-color .15s ease, transform .15s ease; }
+  .stat-card.clickable:hover{ border-color: var(--accent-a); }
+  .stat-card.clickable:active{ transform: scale(.98); }
+
+  .confirm-modal{ max-width:340px; text-align:center; }
+  .confirm-modal h3{ font-size:1.05rem; font-weight:800; margin-bottom:18px; }
+  .confirm-actions{ display:flex; gap:10px; }
+  .confirm-actions button{ margin-top:0; }
+
+  .filter-row{ display:flex; gap:8px; margin-bottom:16px; flex-wrap:wrap; }
+  .data-table{ width:100%; border-collapse:collapse; font-size:.82rem; }
+  .data-table th{ text-align:left; padding:10px 12px; color:var(--muted); font-weight:700; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--border); }
+  .data-table td{ padding:10px 12px; border-bottom:1px solid var(--border); }
+  .data-table tr:last-child td{ border-bottom:none; }
+  .role-badge{ display:inline-block; font-size:.65rem; font-weight:800; text-transform:uppercase; padding:3px 8px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); }
+  .role-badge.dev{ background: var(--accent-grad); color:#fff; border-color:transparent; }
+  .role-badge.mgr{ color: var(--accent-a); border-color: var(--accent-a); }
+
+  .about-card p{ font-size:.86rem; color:var(--muted); line-height:1.7; margin-bottom:8px; }
+  .about-card strong{ color:var(--text); }
+  .dev-photo-wrap{ display:flex; justify-content:center; margin-bottom:16px; }
+  .dev-photo-wrap img, .dev-photo-wrap .dev-photo-default{ width:88px; height:88px; border-radius:50%; object-fit:cover; border:2px solid var(--border); background: var(--accent-grad); display:flex; align-items:center; justify-content:center; font-size:1.9rem; }
+  .dev-photo-admin-preview{ width:88px; height:88px; border-radius:50%; object-fit:cover; border:2px solid var(--border); background: var(--surface-2); display:flex; align-items:center; justify-content:center; font-size:1.9rem; flex-shrink:0; }
+  .dev-photo-admin-row{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+  .dev-photo-admin-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 4px; border-bottom:1px solid var(--border); }
+  .toggle-row:last-child{ border-bottom:none; }
+  .toggle-row .lbl{ display:flex; align-items:center; gap:10px; font-size:.85rem; font-weight:600; }
+  .switch{ width:40px; height:22px; border-radius:20px; background: var(--surface-2); border:1px solid var(--border); position:relative; transition: background .2s ease; flex-shrink:0; }
+  .switch.on{ background: var(--accent-grad); border-color: transparent; }
+  .switch .knob{ position:absolute; top:2px; left:2px; width:16px; height:16px; border-radius:50%; background:#fff; transition: left .2s ease; }
+  .switch.on .knob{ left:20px; }
+
+  .bottom-nav{ display:none; }
+  .drawer-backdrop{ position:fixed; inset:0; background: rgba(0,0,0,.55); z-index: 60; display:none; }
+  .drawer-backdrop.open{ display:block; }
+  .drawer{ position:fixed; top:0; left:0; bottom:0; width: 260px; background: var(--surface); border-right:1px solid var(--border); padding: 24px 18px; transform: translateX(-100%); transition: transform .25s ease; z-index: 61; display:flex; flex-direction:column; overflow-y:auto; }
+  .drawer.open{ transform: translateX(0); }
+  .drawer .brand-row{ margin-bottom:26px; }
+
+  @media (max-width: 880px){
+    .sidebar{ display:none; }
+    .main-wrap{ margin-left:0; }
+    .header-hamburger{ display:flex; }
+    .header-search{ max-width:none; }
+    .header-search input{ padding:12px 16px; font-size:.95rem; }
+    .brand-text{ display:none; }
+    .main{ padding: 20px 16px calc(var(--player-h) + 76px); }
+    .hero{ height: 220px; }
+    .hero-info h3{ font-size:1.05rem; }
+    .player{ grid-template-columns: auto 1fr auto; bottom: 64px; padding: 0 12px; height: 72px; }
+    .player-center .seek-row{ display:none; }
+    .player-track .meta .a{ display:none; }
+    .player-right .volume-row{ display:none; }
+    .player-right button:not(.like-btn){ display:none; }
+    .bottom-nav{ display:flex; position:fixed; left:0; right:0; bottom:0; height:64px; background: var(--surface); border-top:1px solid var(--border); align-items:center; justify-content:space-around; z-index: 45; }
+    .bottom-nav a{ display:flex; flex-direction:column; align-items:center; gap:3px; color: var(--muted); font-size:.6rem; font-weight:700; }
+    .bottom-nav a.active{ color: var(--accent-a); }
+    .bottom-nav .ic{ font-size:1rem; }
+  }
+
+  /* ---------------- NEW: MEDIA UPLOAD (hero photo/video) ---------------- */
+  .hero-admin-btns{ display:flex; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .hero-admin-btns .submit-btn{ width:auto; flex:1 1 160px; margin-top:0; white-space:nowrap; }
+  @media (max-width:480px){ .hero-admin-btns{ flex-direction:column; } .hero-admin-btns .submit-btn{ width:100%; } }
+  .upload-stage{ animation: pop .2s ease; }
+  .upload-preview{ border-radius:12px; overflow:hidden; background:var(--surface-2); margin-bottom:14px; max-height:280px; display:flex; align-items:center; justify-content:center; }
+  .upload-preview img, .upload-preview video{ width:100%; max-height:280px; object-fit:contain; display:block; }
+  .upload-stage-actions{ display:flex; gap:10px; }
+  .upload-stage-actions .submit-btn, .upload-stage-actions .ghost-btn{ width:auto; flex:1; margin-top:0; }
+  .admin-thumb-wrap{ position:relative; flex-shrink:0; }
+  .media-type-badge{ position:absolute; bottom:-3px; right:-3px; font-size:.6rem; background:var(--surface); border:1px solid var(--border); border-radius:6px; padding:1px 3px; }
+
+  /* ---------------- NEW: SELECTION / BULK DELETE ---------------- */
+  .select-bar{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:8px 4px 14px; flex-wrap:wrap; }
+  .select-bar .sel-all-lbl{ display:flex; align-items:center; gap:8px; font-size:.82rem; font-weight:700; color:var(--muted); cursor:pointer; }
+  .select-bar .sel-count{ font-size:.76rem; color:var(--muted); }
+  .btn-delete-selected{ padding:8px 14px; border-radius:9px; background:rgba(239,68,68,.12); color:#f87171; font-weight:700; font-size:.8rem; border:1px solid rgba(239,68,68,.3); transition: background .15s ease; }
+  .btn-delete-selected:hover{ background:rgba(239,68,68,.22); }
+  .sel-check{ width:17px; height:17px; flex-shrink:0; accent-color: var(--accent-a); cursor:pointer; }
+  .sel-note{ font-size:.78rem; color:#f87171; margin: 4px 0 10px; }
+  .row-fade-out{ animation: fadeOutRow .28s ease forwards; }
+  @keyframes fadeOutRow{ to{ opacity:0; transform: translateX(-8px) scale(.98); max-height:0; padding-top:0; padding-bottom:0; margin:0; } }
+  .row-pop-in{ animation: pop .25s ease; }
+
+  /* ---------------- NEW: SONG THREE-DOT MENU ---------------- */
+  .song-menu{ position:relative; flex-shrink:0; }
+  .song-menu-btn{ font-size:1.05rem; line-height:1; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; color:var(--muted); transition: all .15s ease; }
+  .song-menu-btn:hover, .song-menu.open .song-menu-btn{ background: var(--surface-2); color:var(--text); }
+  .song-menu-dropdown{ position:absolute; right:0; top: calc(100% + 4px); min-width:150px; background: var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow: 0 12px 30px rgba(0,0,0,.35); padding:6px; display:none; flex-direction:column; z-index:50; }
+  .song-menu.open .song-menu-dropdown{ display:flex; }
+  .song-menu-item{ display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:7px; font-size:.85rem; font-weight:600; color:var(--text); text-align:left; width:100%; }
+  .song-menu-item:hover{ background: var(--surface-2); }
+  .song-menu-item.danger{ color: var(--danger); }
+  .song-menu-item .mi{ font-size:.9rem; width:16px; text-align:center; flex-shrink:0; }
+  .song-vrow.row-selected{ border-color: var(--accent-a); background: var(--surface-2); }
+  .nav-item.nav-indent{ padding-left: 30px; font-size:.86rem; }
+  .nav-item.nav-indent .ic{ font-size:.9rem; }
+
+  /* ---------------- NEW: TOAST ---------------- */
+  .toast-wrap{ position:fixed; left:50%; bottom: calc(var(--player-h) + 20px); transform: translateX(-50%); z-index: 200; display:flex; flex-direction:column; gap:8px; align-items:center; pointer-events:none; }
+  .toast{ background: var(--surface); border:1px solid var(--border); color:var(--text); font-size:.82rem; font-weight:600; padding:11px 18px; border-radius:999px; box-shadow: 0 10px 30px rgba(0,0,0,.35); animation: toastIn .2s ease, toastOut .25s ease 2.6s forwards; max-width:90vw; text-align:center; }
+  @keyframes toastIn{ from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform: translateY(0); } }
+  @keyframes toastOut{ to{ opacity:0; transform: translateY(6px); } }
+  @media (max-width:880px){ .toast-wrap{ bottom: 140px; } }
+</style>
+</head>
+<body>
+
+<!-- ============ TOP HEADER ============ -->
+<header class="topheader">
+  <div class="header-left">
+    <button class="header-hamburger" id="hamburgerBtn"><span></span><span></span><span></span></button>
+    <div class="brand-row" id="brandTop"><span class="brand-text" id="brandTextTop">DEV MUSIC HUB</span></div>
+  </div>
+  <div class="header-search">
+    <input type="text" id="searchInput" placeholder="Search songs or artists..." />
+  </div>
+  <div class="header-right">
+    <button class="header-icon-btn" id="profileBtn" title="Profile">👤</button>
+    <button class="header-icon-btn" id="settingsHeaderBtn" title="Settings">⚙️</button>
+    <div class="profile-pop" id="profilePop">
+      <div class="pname" id="profileName">Not signed in</div>
+      <div class="pemail" id="profileEmail">Sign in to like songs</div>
+      <div id="profileRoleWrap"></div>
+      <button id="profileActionBtn">Sign In</button>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <ul class="nav-list" id="navListDesktop"></ul>
+  </aside>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="brand-row" id="brandDrawer"><span class="brand-text" id="brandTextDrawer">DEV MUSIC HUB</span></div>
+    <ul class="nav-list" id="navListDrawer"></ul>
+  </aside>
+
+  <div class="main-wrap">
+    <main class="main">
+
+      <section id="view-home">
+        <div class="hero-wrap">
+          <div class="hero" id="hero">
+            <div class="hero-cards" id="heroTrack"></div>
+          </div>
+          <div class="hero-dots" id="heroDots"></div>
+        </div>
+
+        <div class="section-title">Categories</div>
+        <div class="categories" id="categories"></div>
+
+        <div class="section-title">Popular Songs <span class="tag" id="filterTag">All</span></div>
+        <div class="songs-row-wrap">
+          <button class="row-arrow left" id="songsLeftBtn">‹</button>
+          <div class="songs-row" id="songsGrid"></div>
+          <button class="row-arrow right" id="songsRightBtn">›</button>
+        </div>
+      </section>
+
+      <section id="view-categories" class="hidden">
+        <div class="view-heading">All Categories</div>
+        <div class="view-sub">Tap a category to open its songs.</div>
+        <div class="circle-grid" id="catCircleGrid"></div>
+      </section>
+
+      <section id="view-artists" class="hidden">
+        <div class="view-heading">Artists</div>
+        <div class="view-sub">Tap an artist to open their songs.</div>
+        <div class="circle-grid" id="artistGrid"></div>
+      </section>
+
+      <section id="view-playlists" class="hidden">
+        <div class="view-heading">Playlists</div>
+        <div class="view-sub">Browse playlists curated for the hub.</div>
+        <div class="playlist-grid" id="playlistGrid"></div>
+      </section>
+
+      <section id="view-liked" class="hidden">
+        <div class="view-heading">Liked Songs</div>
+        <div class="view-sub">Songs you've liked, saved to this browser.</div>
+        <div class="vlist" id="likedList"></div>
+      </section>
+
+      <section id="view-mymusic" class="hidden">
+        <div class="view-heading">My Music</div>
+        <div class="view-sub">Your own personal songs — only you can see these.</div>
+        <div class="dash-card">
+          <h4>Add a song</h4>
+          <p class="api-key-note">Search YouTube and tap a result to add it to your library instantly.</p>
+          <button class="submit-btn" data-act="open-yt-search-mymusic">🔍 Search YouTube</button>
+        </div>
+        <div id="mymusicSelectBar"></div>
+        <div class="vlist" id="mymusicList"></div>
+      </section>
+
+      <section id="view-drilldown" class="hidden">
+        <button class="back-btn" data-act="drill-back">← Back</button>
+        <div class="view-heading" id="drillTitle">—</div>
+        <div class="view-sub" id="drillSub"></div>
+        <div class="vlist" id="drillList"></div>
+      </section>
+
+      <section id="view-dashboard" class="hidden">
+        <div class="view-heading">Dashboard</div>
+        <div class="view-sub" id="dashSub">Manage the hub's content and people.</div>
+        <div class="dash-layout">
+          <div class="dash-tabs" id="dashTabs"></div>
+          <div class="dash-content" id="dashContent"></div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<div class="player">
+  <div class="player-track">
+    <div class="thumb-wrap">
+      <img id="playerThumb" src="" alt="cover" />
+      <div class="eq-bars" aria-hidden="true"><span></span><span></span><span></span></div>
+    </div>
+    <div class="meta"><div class="t" id="playerTitle">—</div><div class="a" id="playerArtist">—</div></div>
+    <button class="like-btn" id="likeBtn" title="Like">🤍</button>
+  </div>
+  <div class="player-center">
+    <div class="controls">
+      <button id="prevBtn" title="Previous">⏮</button>
+      <button class="play-pause" id="playPauseBtn" title="Play/Pause">▶</button>
+      <button id="nextBtn" title="Next">⏭</button>
+    </div>
+    <div class="seek-row">
+      <span class="time" id="curTime">0:00</span>
+      <div class="seek-bar" id="seekBar"><div class="seek-fill" id="seekFill"></div></div>
+      <span class="time" id="durTime">0:30</span>
+    </div>
+  </div>
+  <div class="player-right">
+    <button id="shuffleBtn" title="Shuffle">🔀</button>
+    <button id="repeatBtn" title="Repeat">🔁</button>
+    <div class="volume-row"><button id="muteBtn" title="Mute">🔊</button><input type="range" id="volumeRange" min="0" max="100" value="70" /></div>
+  </div>
+</div>
+
+<nav class="bottom-nav" id="bottomNav"></nav>
+
+<!-- ============ HIDDEN YOUTUBE IFRAME AUDIO ENGINE ============ -->
+<div style="position:fixed; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none; bottom:0; left:0; z-index:-1;">
+  <div id="ytPlayerTarget"></div>
+</div>
+
+<!-- ============ HIDDEN FILE INPUTS: HERO PHOTO / VIDEO UPLOAD ============ -->
+<input type="file" id="heroPhotoFile" accept="image/jpeg,image/png,image/webp,image/jpg,.jpg,.jpeg,.png,.webp" style="display:none;" />
+<input type="file" id="heroVideoFile" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov" style="display:none;" />
+<input type="file" id="devPhotoFile" accept="image/jpeg,image/png,image/webp,image/jpg,.jpg,.jpeg,.png,.webp" style="display:none;" />
+
+<!-- ============ TOASTS ============ -->
+<div class="toast-wrap" id="toastWrap"></div>
+
+<!-- ============ SETTINGS MENU MODAL ============ -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Settings</h3><button class="modal-close" data-close="settingsModal">✕</button></div>
+    <div class="settings-list" id="settingsMenuList"></div>
+  </div>
+</div>
+
+<!-- ============ PROFILE EDIT MODAL ============ -->
+<div class="modal-backdrop" id="profileEditModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Edit Profile</h3><button class="modal-close" data-close="profileEditModal">✕</button></div>
+    <div class="avatar-upload">
+      <div class="avatar-preview" id="peAvatarPreview">📷</div>
+      <div><label class="file-btn" for="peAvatarInput">Upload photo</label><input type="file" id="peAvatarInput" accept="image/*" style="display:none;" /></div>
+    </div>
+    <div class="field"><label>Or Profile Photo URL</label><input type="text" id="peAvatarUrlInput" placeholder="https://..." /></div>
+    <div class="field"><label>Name</label><input type="text" id="peName" /></div>
+    <div class="field"><label>Email</label><input type="email" id="peEmail" /></div>
+    <div class="form-error" id="peError"></div>
+    <button class="submit-btn" data-act="profile-save">Save Changes</button>
+    <hr style="border-color:var(--border,#333);margin:18px 0;" />
+    <h4 style="margin:0 0 10px;">Change Password</h4>
+    <div class="field"><label>Current Password</label><input type="password" id="pePwdCurrent" placeholder="Current password" /></div>
+    <div class="field"><label>New Password</label><input type="password" id="pePwdNew" placeholder="At least 8 characters, with a letter and a number" /></div>
+    <div class="form-error" id="pePwdError"></div>
+    <button class="submit-btn" data-act="change-password-save">Update Password</button>
+  </div>
+</div>
+
+<!-- ============ RECENTLY LISTENED MODAL ============ -->
+<div class="modal-backdrop" id="historyModal">
+  <div class="modal wide">
+    <div class="modal-head"><h3>Recently Listened</h3><button class="modal-close" data-close="historyModal">✕</button></div>
+    <div class="filter-row" id="historyFilterRow">
+      <button class="pill active" data-hfilter="all">All</button>
+      <button class="pill" data-hfilter="1">Last 1hr</button>
+      <button class="pill" data-hfilter="6">Last 6hrs</button>
+      <button class="pill" data-hfilter="12">Last 12hrs</button>
+    </div>
+    <div class="vlist" id="historyList"></div>
+  </div>
+</div>
+
+<!-- ============ FEEDBACK MODAL ============ -->
+<div class="modal-backdrop" id="feedbackModal">
+  <div class="modal">
+    <div class="modal-head"><h3>Send Feedback</h3><button class="modal-close" data-close="feedbackModal">✕</button></div>
+    <div class="field"><label>Message</label><textarea id="fbMessage" rows="5" placeholder="Tell us what you think..."></textarea></div>
+    <div class="form-error" id="fbError"></div>
+    <div class="form-ok" id="fbOk"></div>
+    <button class="submit-btn" data-act="feedback-submit">Submit Feedback</button>
+  </div>
+</div>
+
+<!-- ============ ABOUT DEVELOPER MODAL (view-only for everyone) ============ -->
+<div class="modal-backdrop" id="aboutModal">
+  <div class="modal">
+    <div class="modal-head"><h3>About the Developer</h3><button class="modal-close" data-close="aboutModal">✕</button></div>
+    <div class="dev-photo-wrap" id="aboutDevPhotoWrap"></div>
+    <div class="about-card">
+      <p><strong>Dev Music Hub</strong> is built and maintained by its founding developer.</p>
+      <p><strong>Developer Name:</strong> DEV KUSHWAH</p>
+      <p><strong>Contact Email:</strong> kdev76979@gmail.com</p>
+      <p><strong>Instagram:</strong> @kdev76979</p>
+      <p>The developer manages global content, Manager accounts, and platform feedback through the Dashboard.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ============ LOGIN MODAL ============ -->
+<div class="modal-backdrop" id="loginModal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="loginTitle">Sign In</h3><button class="modal-close" data-close="loginModal">✕</button></div>
+    <div class="role-tabs" id="loginRoleTabs">
+      <button class="role-tab active" data-role="user">User</button>
+      <button class="role-tab" data-role="admin">Admin</button>
+    </div>
+
+    <!-- USER LOGIN FORM -->
+    <div id="userLoginForm">
+      <div class="role-tabs" id="userAuthModeTabs">
+        <button class="role-tab active" data-authmode="login">Sign In</button>
+        <button class="role-tab" data-authmode="register">Create Account</button>
+      </div>
+      <div id="registerOnlyFields">
+        <div class="avatar-upload">
+          <div class="avatar-preview" id="avatarPreview">📷</div>
+          <div><label class="file-btn" for="avatarInput">Upload photo</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" /></div>
+        </div>
+        <div class="field"><label>Or Profile Photo URL</label><input type="text" id="avatarUrlInput" placeholder="https://..." /></div>
+        <div class="field"><label>Name *</label><input type="text" id="loginName" placeholder="Your full name" /></div>
+        <div class="field"><label>Mobile Number *</label><input type="tel" id="loginMobile" placeholder="Your mobile number" /></div>
+      </div>
+      <div class="field"><label>Email or Mobile *</label><input type="text" id="loginEmail" placeholder="you@example.com" /></div>
+      <div class="field"><label>Password *</label><input type="password" id="loginPassword" placeholder="At least 8 characters, with a letter and a number" /></div>
+      <div class="form-error" id="loginError"></div>
+      <button class="submit-btn" data-act="user-login-submit" id="userAuthSubmitBtn">Sign In</button>
+    </div>
+
+    <!-- ADMIN LOGIN FORM -->
+    <div id="adminLoginForm" class="hidden">
+      <div class="role-tabs" id="adminSubTabs">
+        <button class="role-tab active" data-subrole="developer">Developer</button>
+        <button class="role-tab" data-subrole="manager">Manager</button>
+      </div>
+      <div class="field"><label>Email or Mobile *</label><input type="text" id="adminIdentifier" placeholder="Email or mobile number" /></div>
+      <div class="field"><label>Password *</label><input type="password" id="adminPassword" placeholder="Password" /></div>
+      <div class="form-error" id="adminLoginError"></div>
+      <button class="submit-btn" data-act="admin-login-submit">Sign In</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CONFIRM MODAL ============ -->
+<div class="modal-backdrop" id="confirmModal">
+  <div class="modal confirm-modal">
+    <h3>Are you sure?</h3>
+    <div class="confirm-actions">
+      <button class="ghost-btn" data-act="confirm-cancel">Cancel</button>
+      <button class="submit-btn" data-act="confirm-done">Done</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HERO VIDEO PREVIEW MODAL ============ -->
+<div class="modal-backdrop" id="heroVideoModal">
+  <div class="modal wide">
+    <div class="modal-head"><h3>🎥 Video</h3><button class="modal-close" data-close="heroVideoModal">✕</button></div>
+    <video id="heroVideoPlayerEl" controls playsinline style="width:100%;border-radius:12px;max-height:70vh;background:#000;"></video>
+  </div>
+</div>
+
+<!-- ============ YOUTUBE SEARCH MODAL ============ -->
+<div class="modal-backdrop" id="ytSearchModal">
+  <div class="modal wide">
+    <div class="modal-head"><h3 id="ytSearchTitle">Search YouTube</h3><button class="modal-close" data-close="ytSearchModal">✕</button></div>
+    <div class="yt-search-row">
+      <input type="text" id="ytQuery" placeholder="Song title or artist name..." />
+      <button data-act="yt-search-run">Search</button>
+    </div>
+    <div class="form-error" id="ytSearchError"></div>
+    <div class="yt-results-list" id="ytResultsList"></div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   0. API CLIENT
+   Backend is the single source of truth now — nothing here
+   reads or writes localStorage for application data. The only
+   thing still allowed in localStorage is the purely-cosmetic
+   theme preference (dark/light), which carries zero user data.
+   ========================================================= */
+const API_BASE = window.DMH_API_BASE || (location.origin.includes('localhost') || location.origin.includes('127.0.0.1') ? 'http://localhost:4000' : '');
+
+class ApiError extends Error {
+  constructor(message, status, details){ super(message); this.status = status; this.details = details; }
+}
+
+/**
+ * Thin fetch wrapper: sends/receives JSON, always includes credentials
+ * (httpOnly session cookies), and on a 401 tries exactly one silent
+ * refresh-then-retry before giving up — this is what keeps a user logged
+ * in across the 15-minute access-token window without them noticing.
+ */
+async function apiRaw(path, { method = 'GET', body, isFormData = false, _retried = false } = {}){
+  const opts = { method, credentials: 'include', headers: {} };
+  if(body !== undefined){
+    if(isFormData){ opts.body = body; }
+    else { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  }
+  let res;
+  try{
+    res = await fetch(API_BASE + path, opts);
+  }catch(networkErr){
+    throw new ApiError('Network error — please check your connection and try again.', 0);
+  }
+  if(res.status === 401 && !_retried && path !== '/api/auth/refresh' && path !== '/api/auth/login' && path !== '/api/auth/admin/login'){
+    const refreshed = await fetch(API_BASE + '/api/auth/refresh', { method: 'POST', credentials: 'include' }).then(r=>r.ok).catch(()=>false);
+    if(refreshed) return apiRaw(path, { method, body, isFormData, _retried: true });
+  }
+  let data = null;
+  const text = await res.text();
+  if(text){ try{ data = JSON.parse(text); }catch(e){ /* non-JSON response */ } }
+  if(!res.ok){
+    const msg = (data && data.error) || `Request failed (${res.status}).`;
+    throw new ApiError(msg, res.status, data && data.details);
+  }
+  return data;
+}
+const api = {
+  get: (path)=> apiRaw(path),
+  post: (path, body)=> apiRaw(path, { method:'POST', body: body || {} }),
+  patch: (path, body)=> apiRaw(path, { method:'PATCH', body: body || {} }),
+  del: (path)=> apiRaw(path, { method:'DELETE' }),
+  upload: (path, file)=>{ const fd = new FormData(); fd.append('file', file); return apiRaw(path, { method:'POST', body: fd, isFormData: true }); }
+};
+
+/* Cosmetic-only local storage (theme). Everything else is server-backed. */
+function lsGet(key, fallback){
+  try{ const raw = localStorage.getItem(key); return raw !== null ? JSON.parse(raw) : fallback; }
+  catch(e){ return fallback; }
+}
+function lsSet(key, val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){ /* storage unavailable */ }
+}
+function uid(prefix){ return (prefix||'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function nowTs(){ return Date.now(); }
+function songKey(s){ return (s.title + '::' + s.artist).toLowerCase(); }
+function esc(str){ return String(str==null?'':str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function errMsg(e){ return (e && e.message) ? e.message : 'Something went wrong. Please try again.'; }
+
+/* =========================================================
+   0A. TOASTS (lightweight, user-friendly error/status messages)
+   ========================================================= */
+function showToast(msg){
+  const wrap = document.getElementById('toastWrap');
+  if(!wrap){ return; }
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  setTimeout(()=>{ el.remove(); }, 3000);
+}
+function showLoadingToast(msg){
+  const wrap = document.getElementById('toastWrap');
+  if(!wrap) return ()=>{};
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  wrap.appendChild(el);
+  return ()=> el.remove();
+}
+
+/* =========================================================
+   0C. GENERIC MULTI-SELECT HELPERS (used by every removable list:
+   hero items, songs, categories/artists/playlists)
+   ========================================================= */
+const selectionState = {}; // listId -> Set of keys/ids
+function getSel(listId){ return selectionState[listId] || (selectionState[listId] = new Set()); }
+function clearSel(listId){ selectionState[listId] = new Set(); }
+function toggleSel(listId, key){ const s = getSel(listId); if(s.has(key)) s.delete(key); else s.add(key); }
+function renderSelectBar(listId, allKeys){
+  const sel = getSel(listId);
+  const total = allKeys.length;
+  const selCount = allKeys.filter(k=> sel.has(k)).length;
+  const allChecked = total > 0 && selCount === total;
+  return `
+    <div class="select-bar">
+      <label class="sel-all-lbl"><input type="checkbox" class="sel-check" data-act="sel-all" data-listid="${esc(listId)}" ${allChecked?'checked':''} /> Select All <span class="sel-count">${selCount ? `(${selCount} selected)` : ''}</span></label>
+      <button class="btn-delete-selected" data-act="sel-delete" data-listid="${esc(listId)}">🗑 Delete Selected</button>
+    </div>`;
+}
+
+/* =========================================================
+   0B. THEME (Dark / Light) — cosmetic only, kept in localStorage
+   ========================================================= */
+let currentTheme = lsGet('dmh_theme', 'dark');
+function applyTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark');
+}
+applyTheme(currentTheme);
+function toggleTheme(){
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  lsSet('dmh_theme', currentTheme);
+  applyTheme(currentTheme);
+  renderSettingsMenu();
+}
+
+/* =========================================================
+   1. (removed) — hardcoded developer credentials no longer exist
+   anywhere in this file. The Developer account is created once,
+   server-side, from environment variables during deployment
+   (see backend prisma/seed.js) and authenticated via the real
+   /api/auth/admin/login endpoint below.
+   ========================================================= */
+
+/* =========================================================
+   2. SEED / DEFAULT DATA
+   All catalog content (brand, hero, categories, artists,
+   playlists) now lives in PostgreSQL and is loaded from the
+   API in loadAppData() below. No demo data is hardcoded here
+   any more — see backend/prisma/seed.js for the one-time seed.
+   ========================================================= */
+function mkSong(title, artist, img, videoId){ return { id: null, title, artist, img, videoId: videoId || null }; }
+
+/* =========================================================
+   3. STORE — in-memory cache of server data.
+   Populated by loadAppData()/loadAdminOnlyData() below, and
+   kept in sync by updating these fields from each API response
+   instead of writing to localStorage.
+   ========================================================= */
+const Store = {
+  brand: 'DEV MUSIC HUB',
+  hero: [],
+  categories: [],
+  artists: [],
+  playlists: [],
+  users: [],       // admin "Users Viewer" cache, loaded on demand
+  managers: [],    // admin "Manager Admin" cache, loaded on demand
+  feedback: [],    // admin "Feedback Viewer" cache, loaded on demand
+  loginlog: [],    // admin "Login Activity Log" cache, loaded on demand
+  devPhoto: ''
+};
+
+async function loadAppData(){
+  const [brandRes, heroRes, catRes, artRes, plRes, devPhotoRes] = await Promise.all([
+    api.get('/api/admin/brand'),
+    api.get('/api/hero'),
+    api.get('/api/categories'),
+    api.get('/api/artists'),
+    api.get('/api/playlists'),
+    api.get('/api/admin/dev-photo')
+  ]);
+  Store.brand = brandRes.brand || 'DEV MUSIC HUB';
+  Store.hero = heroRes.items.map(h=> ({
+    id: h.id, title: h.title, artist: h.artist, caption: h.caption, img: h.img,
+    mediaType: h.mediaType, videoId: h.videoId, mediaUrl: h.mediaUrl
+  }));
+  Store.categories = catRes.items;
+  Store.artists = artRes.items;
+  Store.playlists = plRes.items;
+  Store.devPhoto = devPhotoRes.photoUrl || '';
+}
+
+/* per-user data — loaded from the server after login, on every device */
+async function loadUserData(){
+  if(!isLoggedIn() || session.kind !== 'user'){ likedSongs = []; listenHistory = []; myMusic = []; return; }
+  const [likesRes, histRes, myMusicRes] = await Promise.all([
+    api.get('/api/likes'), api.get('/api/history'), api.get('/api/mymusic')
+  ]);
+  likedSongs = likesRes.items.map(songKey);
+  listenHistory = histRes.items.map(s=> ({ key: songKey(s), title:s.title, artist:s.artist, img:s.img, ts: new Date(s.playedAt).getTime(), songId: s.id }));
+  myMusic = myMusicRes.items;
+}
+
+/* =========================================================
+   4. SESSION
+   The session is restored on every page load by calling
+   GET /api/auth/me, which relies on the httpOnly cookies the
+   backend set at login — this is what makes a user's likes,
+   history, and My Music follow them across browsers/devices.
+   ========================================================= */
+let session = null; // { kind:'user'|'admin', role:'user'|'manager'|'developer', id, name, email, mobile, avatar }
+function isLoggedIn(){ return !!session; }
+function isAdmin(){ return session && (session.role === 'developer' || session.role === 'manager'); }
+function isDeveloper(){ return session && session.role === 'developer'; }
+
+function setSessionFromApiUser(u){
+  session = { kind: u.kind, role: u.role, id: u.id, name: u.name, email: u.email, mobile: u.mobile || '', avatar: u.avatarUrl || '' };
+}
+
+async function restoreSession(){
+  try{
+    const res = await api.get('/api/auth/me');
+    setSessionFromApiUser(res.user);
+  }catch(e){
+    session = null; // not logged in — this is the normal, expected case for guests
+  }
+  await loadUserData();
+}
+
+let likedSongs = [];
+let listenHistory = [];
+let myMusic = [];
+
+/* =========================================================
+   5. RUNTIME STATE
+   ========================================================= */
+let currentCategory = "All";
+let currentQueue = [];       // array of song objects currently playable via prev/next
+let currentSongIndex = -1;
+let currentSong = null;
+let isPlaying = false;
+let isShuffle = false;
+let repeatMode = false;
+let heroIndex = 0;
+let heroTimer = null;
+let seekTimer = null;
+let seekPercent = 0;
+const SONG_DURATION = 30;
+let pendingLikeSong = null;
+let currentView = "home";
+let lastGridView = "home";
+let drillContext = null; // { kind:'category'|'artist'|'playlist', id }
+let dashTab = 'hero';
+let showLoginLog = false;
+let historyFilter = 'all';
+let heroUploadStage = null;   // { type:'photo'|'video', file, previewUrl, caption } while staging an upload
+let heroUploadError = '';
+
+
+/* =========================================================
+   6. DOM REFS
+   ========================================================= */
+const heroTrack = document.getElementById('heroTrack');
+const heroDots = document.getElementById('heroDots');
+const categoriesEl = document.getElementById('categories');
+const songsGrid = document.getElementById('songsGrid');
+const filterTag = document.getElementById('filterTag');
+const catCircleGrid = document.getElementById('catCircleGrid');
+const artistGrid = document.getElementById('artistGrid');
+const playlistGrid = document.getElementById('playlistGrid');
+const drillTitle = document.getElementById('drillTitle');
+const drillSub = document.getElementById('drillSub');
+const drillList = document.getElementById('drillList');
+const likedList = document.getElementById('likedList');
+const mymusicList = document.getElementById('mymusicList');
+
+const playerThumb = document.getElementById('playerThumb');
+const playerTitle = document.getElementById('playerTitle');
+const playerArtist = document.getElementById('playerArtist');
+const likeBtn = document.getElementById('likeBtn');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const seekBar = document.getElementById('seekBar');
+const seekFill = document.getElementById('seekFill');
+const curTimeEl = document.getElementById('curTime');
+const durTimeEl = document.getElementById('durTime');
+const shuffleBtn = document.getElementById('shuffleBtn');
+const repeatBtn = document.getElementById('repeatBtn');
+
+const settingsModal = document.getElementById('settingsModal');
+const loginModal = document.getElementById('loginModal');
+const profileEditModal = document.getElementById('profileEditModal');
+const historyModal = document.getElementById('historyModal');
+const feedbackModal = document.getElementById('feedbackModal');
+const aboutModal = document.getElementById('aboutModal');
+const ytSearchModal = document.getElementById('ytSearchModal');
+const confirmModal = document.getElementById('confirmModal');
+const heroVideoModal = document.getElementById('heroVideoModal');
+const searchInput = document.getElementById('searchInput');
+
+const ALL_MODALS = [settingsModal, loginModal, profileEditModal, historyModal, feedbackModal, aboutModal, ytSearchModal, confirmModal, heroVideoModal];
+
+
+/* =========================================================
+   7. LOGO + BRAND
+   ========================================================= */
+function renderBrand(){
+  document.getElementById('brandTextTop').textContent = Store.brand;
+  document.getElementById('brandTextDrawer').textContent = Store.brand;
+  document.title = Store.brand;
+}
+
+
+/* =========================================================
+   8. MODALS
+   ========================================================= */
+function openModal(el){ el.classList.add('open'); }
+function closeModal(el){ el.classList.remove('open'); }
+let confirmCallback = null;
+function openConfirmModal(cb){ confirmCallback = cb; openModal(confirmModal); }
+function closeAllModals(){ ALL_MODALS.forEach(closeModal); }
+document.querySelectorAll('[data-close]').forEach(btn=> btn.addEventListener('click', ()=> closeModal(document.getElementById(btn.dataset.close))));
+ALL_MODALS.forEach(modal=> modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(modal); }));
+
+
+/* =========================================================
+   9. NAV CONFIG
+   ========================================================= */
+function baseNavConfig(){
+  const cfg = [
+    { key: "home",       label: "Home",         icon: "🏠" },
+    { key: "categories", label: "Categories",   icon: "🗂️" },
+    { key: "artists",    label: "Artists",      icon: "🎤" },
+    { key: "playlists",  label: "Playlists",    icon: "📃" },
+    { key: "liked",      label: "Liked Songs",  icon: "❤️" },
+    { key: "mymusic",    label: "My Music",     icon: "🎵" }
+  ];
+  if(isAdmin()) cfg.push({ key: "dashboard", label: "Dashboard", icon: "🛠️" });
+  return cfg;
+}
+function buildNavList(container, isBottomNav){
+  const visible = baseNavConfig();
+  const itemHTML = n => isBottomNav
+    ? `<a href="#" class="${n.key===currentView?'active':''}" data-act="nav" data-nav="${n.key}"><span class="ic">${n.icon}</span>${n.label}</a>`
+    : `<li class="nav-item ${n.indent?'nav-indent':''} ${n.key===currentView?'active':''}" data-act="nav" data-nav="${n.key}"><span class="ic">${n.icon}</span> ${n.label}</li>`;
+  container.innerHTML = visible.map(itemHTML).join('');
+}
+function renderNav(){
+  buildNavList(document.getElementById('navListDesktop'), false);
+  buildNavList(document.getElementById('navListDrawer'), false);
+  buildNavList(document.getElementById('bottomNav'), true);
+}
+function setActiveNav(name){ document.querySelectorAll('[data-nav]').forEach(el=> el.classList.toggle('active', el.dataset.nav === name)); }
+
+
+/* =========================================================
+   10. VIEW SWITCHING
+   ========================================================= */
+const ALL_VIEWS = ['home','categories','artists','playlists','liked','mymusic','drilldown','dashboard'];
+function showView(name){
+  if(name === 'dashboard' && !isAdmin()) name = 'home';
+  currentView = name;
+  ALL_VIEWS.forEach(v=> document.getElementById('view-' + v).classList.toggle('hidden', v !== name));
+  if(name === 'liked') renderLiked();
+  if(name === 'mymusic') renderMyMusic();
+  if(name === 'dashboard') renderDashboard();
+  if(['home','categories','artists','playlists','liked','mymusic'].includes(name)) lastGridView = name;
+  setActiveNav(name);
+  renderNav();
+  closeDrawer();
+}
+
+
+/* =========================================================
+   11. HERO CAROUSEL
+   ========================================================= */
+function renderHero(){
+  if(!Store.hero.length){
+    heroTrack.innerHTML = '';
+    heroTrack.parentElement.innerHTML = '<div class="hero-empty">No featured items yet.</div>';
+    heroDots.innerHTML = '';
+    return;
+  }
+  heroTrack.innerHTML = Store.hero.map((h,i)=>{
+    const isMedia = h.mediaType === 'photo' || h.mediaType === 'video';
+    const heading = h.title ? esc(h.title) : '';
+    const subline = h.mediaType === 'video' ? '🎥 Video' : h.mediaType === 'photo' ? '📷 Photo' : esc(h.artist||'');
+    const captionLine = h.caption ? `<p>${esc(h.caption)}</p>` : (isMedia ? '' : `<p>${esc(h.artist||'')}</p>`);
+    const playBtn = h.mediaType === 'video'
+      ? `<button class="hero-play" data-act="hero-play-video" data-mediaurl="${esc(h.mediaUrl||'')}" title="Play video">▶</button>`
+      : (!isMedia ? `<button class="hero-play" data-act="hero-play" data-i="${i}" title="Play">▶</button>` : '');
+    return `
+    <div class="hero-card ${i===0?'active':''}" data-i="${i}">
+      <img src="${esc(h.img)}" alt="${esc(h.caption||h.title||'Featured item')}" />
+      <div class="hero-info"><div>${heading?`<h3>${heading}</h3>`:''}${!heading&&isMedia?`<h3>${esc(subline)}</h3>`:(isMedia?`<p>${esc(subline)}</p>`:'')}${captionLine}</div>
+      ${playBtn}</div>
+    </div>`;
+  }).join('');
+  heroDots.innerHTML = Store.hero.map((_,i)=>`<div class="hero-dot ${i===0?'active':''}" data-act="hero-dot" data-i="${i}"></div>`).join('');
+  heroIndex = 0;
+  goToHero(0);
+}
+function goToHero(i){
+  heroIndex = i;
+  heroTrack.style.transform = `translateX(-${i * 90}%)`;
+  document.querySelectorAll('.hero-card').forEach((el,idx)=> el.classList.toggle('active', idx===i));
+  document.querySelectorAll('.hero-dot').forEach((el,idx)=> el.classList.toggle('active', idx===i));
+}
+/* Video now lives in cloud storage (Cloudinary) — the player just points
+   its src at the stored URL directly, no local blob storage involved. */
+function openHeroVideoModal(mediaUrl){
+  if(!mediaUrl){ showToast('This video is not available.'); return; }
+  const player = document.getElementById('heroVideoPlayerEl');
+  player.pause(); player.removeAttribute('src');
+  player.src = mediaUrl;
+  openModal(heroVideoModal);
+  player.play().catch(()=>{});
+}
+document.querySelectorAll('[data-close]').forEach(btn=>{
+  if(btn.dataset.close === 'heroVideoModal'){
+    btn.addEventListener('click', ()=>{ const p = document.getElementById('heroVideoPlayerEl'); p.pause(); p.removeAttribute('src'); });
+  }
+});
+
+
+/* =========================================================
+   11B. HERO ADMIN: UPLOAD PHOTO / UPLOAD VIDEO
+   ('Add featured hero item' — Search YouTube stays unchanged;
+   these add two more sources: a locally-uploaded photo or video.
+   Files are staged locally for preview, then streamed to the
+   backend -> Cloudinary on "Add to Desktop"; only the resulting
+   HTTPS URL is ever stored in the database.)
+   ========================================================= */
+function handleHeroMediaFile(file, type){
+  const imageTypes = ['image/jpeg','image/png','image/webp','image/jpg'];
+  const videoTypes = ['video/mp4','video/webm','video/quicktime'];
+  const okTypes = type === 'photo' ? imageTypes : videoTypes;
+  const typeOk = file.type ? okTypes.includes(file.type) : true;
+  if(!typeOk){
+    heroUploadError = `Unsupported file type${file.type ? ': ' + file.type : ''}. Please choose a ${type==='photo' ? 'JPG, PNG, or WEBP image' : 'MP4, WEBM, or MOV video'}.`;
+    renderDashboard();
+    return;
+  }
+  const maxBytes = type === 'photo' ? 15*1024*1024 : 250*1024*1024;
+  if(file.size > maxBytes){
+    heroUploadError = `That file is too large (max ${type==='photo' ? '15MB' : '250MB'}).`;
+    renderDashboard();
+    return;
+  }
+  if(heroUploadStage && heroUploadStage.previewUrl){ try{ URL.revokeObjectURL(heroUploadStage.previewUrl); }catch(e){} }
+  heroUploadError = '';
+  heroUploadStage = { type, file, previewUrl: URL.createObjectURL(file), caption: '' };
+  renderDashboard();
+}
+function renderHeroUploadStage(){
+  const s = heroUploadStage;
+  const preview = s.type === 'photo'
+    ? `<img src="${s.previewUrl}" alt="preview" />`
+    : `<video src="${s.previewUrl}" controls muted playsinline></video>`;
+  return `
+    <div class="upload-stage" style="margin-top:16px;">
+      <div class="upload-preview">${preview}</div>
+      <div class="field"><label>Caption (optional)</label><input type="text" id="heroCaptionInput" placeholder="Enter caption/title..." value="${esc(s.caption||'')}" /></div>
+      ${heroUploadError ? `<div class="form-error">${esc(heroUploadError)}</div>` : ''}
+      <div class="upload-stage-actions">
+        <button class="submit-btn" data-act="hero-add-to-desktop" id="heroUploadCommitBtn">Add to Desktop</button>
+        <button class="ghost-btn" data-act="hero-cancel-upload">Cancel</button>
+      </div>
+    </div>`;
+}
+async function commitHeroUpload(){
+  if(!heroUploadStage) return;
+  const captionInput = document.getElementById('heroCaptionInput');
+  const caption = captionInput ? captionInput.value.trim() : '';
+  const { type, file } = heroUploadStage;
+  const btn = document.getElementById('heroUploadCommitBtn');
+  if(btn){ btn.disabled = true; btn.textContent = 'Uploading…'; }
+  try{
+    if(type === 'photo'){
+      const uploaded = await api.upload('/api/uploads/hero-photo', file);
+      const res = await api.post('/api/hero', {
+        mediaType: 'PHOTO', img: uploaded.url, mediaUrl: uploaded.url, mediaPublicId: uploaded.publicId, caption
+      });
+      Store.hero.push({ id: res.item.id, title: res.item.title, artist: res.item.artist, caption: res.item.caption, img: res.item.img, mediaType: res.item.mediaType, videoId: res.item.videoId, mediaUrl: res.item.mediaUrl });
+      finishHeroUpload('Photo added to the hero desktop.');
+    } else {
+      const uploaded = await api.upload('/api/uploads/hero-video', file);
+      const posterImg = uploaded.poster || uploaded.url;
+      const res = await api.post('/api/hero', {
+        mediaType: 'VIDEO', img: posterImg, mediaUrl: uploaded.url, mediaPublicId: uploaded.publicId, caption
+      });
+      Store.hero.push({ id: res.item.id, title: res.item.title, artist: res.item.artist, caption: res.item.caption, img: res.item.img, mediaType: res.item.mediaType, videoId: res.item.videoId, mediaUrl: res.item.mediaUrl });
+      finishHeroUpload('Video added to the hero desktop.');
+    }
+  }catch(e){
+    heroUploadError = errMsg(e) || 'Could not upload this file — please try another.';
+    if(btn){ btn.disabled = false; btn.textContent = 'Add to Desktop'; }
+    renderDashboard();
+  }
+}
+function finishHeroUpload(msg){
+  if(heroUploadStage && heroUploadStage.previewUrl){ try{ URL.revokeObjectURL(heroUploadStage.previewUrl); }catch(e){} }
+  heroUploadStage = null; heroUploadError = '';
+  renderHero(); renderDashboard();
+  if(msg) showToast(msg);
+}
+function cancelHeroUpload(){
+  if(heroUploadStage && heroUploadStage.previewUrl){ try{ URL.revokeObjectURL(heroUploadStage.previewUrl); }catch(e){} }
+  heroUploadStage = null; heroUploadError = '';
+  renderDashboard();
+}
+function nextHero(){ if(!Store.hero.length) return; goToHero((heroIndex + 1) % Store.hero.length); }
+function startHeroAutoplay(){ clearInterval(heroTimer); heroTimer = setInterval(nextHero, 3500); }
+function stopHeroAutoplay(){ clearInterval(heroTimer); }
+const heroEl = document.getElementById('hero');
+heroEl.addEventListener('mouseenter', stopHeroAutoplay);
+heroEl.addEventListener('mouseleave', startHeroAutoplay);
+heroEl.addEventListener('touchstart', stopHeroAutoplay, {passive:true});
+heroEl.addEventListener('touchend', ()=> setTimeout(startHeroAutoplay, 3000));
+
+
+/* =========================================================
+   12. SONG POOL / SEARCH HELPERS
+   ========================================================= */
+function allSongsPool(){
+  const map = new Map();
+  Store.categories.forEach(c=> (c.songs||[]).forEach(s=> map.set(songKey(s), s)));
+  Store.artists.forEach(a=> (a.songs||[]).forEach(s=> map.set(songKey(s), s)));
+  Store.playlists.forEach(p=> (p.songs||[]).forEach(s=> map.set(songKey(s), s)));
+  if(isLoggedIn()) myMusic.forEach(s=> map.set(songKey(s), s));
+  return Array.from(map.values());
+}
+function songsForCategory(catName){
+  if(catName === 'All') return allSongsPool();
+  const cat = Store.categories.find(c=> c.name === catName);
+  return cat ? (cat.songs||[]) : [];
+}
+function isLiked(s){ return likedSongs.includes(songKey(s)); }
+
+
+/* =========================================================
+   13. SONG ROW RENDERERS
+   ========================================================= */
+function likeIconClass(s){ return isLiked(s) ? 'liked' : ''; }
+function likeIcon(s){ return isLiked(s) ? '❤️' : '🤍'; }
+function isPlayingSong(s){ return isPlaying && currentSong && songKey(currentSong) === songKey(s); }
+
+function songLineHTML(song, listName){
+  const playing = isPlayingSong(song);
+  return `
+    <div class="song-line ${playing?'playing':''}" data-act="song-click" data-key="${esc(songKey(song))}" data-list="${listName}">
+      <img src="${esc(song.img)}" alt="${esc(song.title)}" />
+      <div class="info"><div class="t">${esc(song.title)}</div><div class="a">${esc(song.artist)}</div></div>
+      <button class="row-like ${likeIconClass(song)}" data-act="song-like" data-key="${esc(songKey(song))}">${likeIcon(song)}</button>
+      <button class="play-mini" data-act="song-click" data-key="${esc(songKey(song))}" data-list="${listName}">${playing ? '⏸' : '▶'}</button>
+    </div>`;
+}
+/* ---- NEW: single three-dot (⋮) menu replaces the separate Select / Like / Remove
+   controls on vertical song rows (liked, my music, drilldown-of-my-music). Select
+   is only offered when a selectListId was passed in (bulk-select owner); Remove is
+   only offered when this row is actually removable. ---- */
+function songVRowHTML(song, listName, removable, selectListId, removeAct){
+  const playing = isPlayingSong(song);
+  const key = songKey(song);
+  const selected = selectListId ? getSel(selectListId).has(key) : false;
+  const menuId = esc(listName + '::' + key);
+  const selectItem = selectListId ? `
+        <button type="button" class="song-menu-item" data-act="sel-toggle" data-listid="${esc(selectListId)}" data-key="${esc(key)}"><span class="mi">${selected?'☑':'☐'}</span>${selected?'Deselect':'Select'}</button>` : '';
+  const removeItem = removable ? `
+        <button type="button" class="song-menu-item danger" data-act="${removeAct||'mymusic-remove'}" data-key="${esc(key)}"><span class="mi">🗑</span>Remove</button>` : '';
+  return `
+    <div class="song-vrow ${playing?'playing':''} ${selected?'row-selected':''}" data-act="song-click" data-key="${esc(key)}" data-list="${listName}">
+      <img src="${esc(song.img)}" alt="${esc(song.title)}" />
+      <div class="info"><div class="t">${esc(song.title)}</div><div class="a">${esc(song.artist)}</div></div>
+      <button class="play-mini" data-act="song-click" data-key="${esc(key)}" data-list="${listName}">${playing ? '⏸' : '▶'}</button>
+      <div class="song-menu" data-menuid="${menuId}">
+        <button type="button" class="song-menu-btn" data-act="song-menu-toggle" data-menuid="${menuId}" title="More options">⋮</button>
+        <div class="song-menu-dropdown">${selectItem}
+          <button type="button" class="song-menu-item" data-act="song-like" data-key="${esc(key)}"><span class="mi">${likeIcon(song)}</span>${isLiked(song)?'Unlike':'Like'}</button>${removeItem}
+        </div>
+      </div>
+    </div>`;
+}
+
+/* named song lists cache, used to resolve prev/next queues and click handlers */
+const songLists = {}; // listName -> array of songs
+function setList(name, arr){ songLists[name] = arr; return arr; }
+
+
+/* =========================================================
+   14. HOME: CATEGORY PILLS + POPULAR SONGS ROW
+   ========================================================= */
+function renderCategoryPills(){
+  const names = ["All", ...Store.categories.map(c=>c.name)];
+  categoriesEl.innerHTML = names.map(name=>
+    `<button class="pill ${name===currentCategory?'active':''}" data-act="pill" data-cat="${esc(name)}">${esc(name)}</button>`).join('');
+}
+function renderSongs(overrideList, overrideLabel){
+  const searching = !!overrideList;
+  if(searching) filterTag.textContent = overrideLabel;
+  else filterTag.textContent = currentCategory;
+  const list = searching ? overrideList : songsForCategory(currentCategory);
+  setList('home', list);
+  rerenderHomeList();
+}
+function rerenderHomeList(){
+  const list = songLists['home'] || [];
+  if(!list.length){ songsGrid.innerHTML = `<div class="empty-note">No songs found.</div>`; return; }
+  songsGrid.innerHTML = list.map(s=> songLineHTML(s, 'home')).join('');
+}
+document.getElementById('songsLeftBtn').addEventListener('click', ()=> songsGrid.scrollBy({ left: -300, behavior: 'smooth' }));
+document.getElementById('songsRightBtn').addEventListener('click', ()=> songsGrid.scrollBy({ left: 300, behavior: 'smooth' }));
+
+searchInput.addEventListener('input', ()=>{
+  const q = searchInput.value.trim().toLowerCase();
+  if(currentView !== 'drilldown'){
+    showView('home');
+    if(!q){ renderSongs(); return; }
+    const filtered = allSongsPool().filter(s => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q));
+    renderSongs(filtered, `Search: "${searchInput.value.trim()}"`);
+  } else {
+    // filter within the currently open drill-down list
+    const base = songLists['drill_full'] || [];
+    const filtered = q ? base.filter(s => s.title.toLowerCase().includes(q) || s.artist.toLowerCase().includes(q)) : base;
+    setList('drilldown', filtered);
+    drillList.innerHTML = filtered.length ? filtered.map(s=> songVRowHTML(s, 'drilldown', drillContext && drillContext.kind==='mymusic')).join('') : `<div class="empty-note">No songs found.</div>`;
+  }
+});
+
+
+/* =========================================================
+   15. CATEGORIES VIEW (circular)
+   ========================================================= */
+function renderCategoryCircles(){
+  catCircleGrid.innerHTML = Store.categories.map(c=>`
+    <div class="circle-card" data-act="open-category" data-id="${c.id}">
+      <div class="circle-photo"><img src="${esc(c.img)}" alt="${esc(c.name)}" /></div>
+      <div class="circle-name">${esc(c.name)}</div>
+    </div>`).join('');
+}
+
+
+/* =========================================================
+   16. ARTISTS VIEW (circular)
+   ========================================================= */
+function renderArtists(){
+  artistGrid.innerHTML = Store.artists.map(a=>`
+    <div class="circle-card" data-act="open-artist" data-id="${a.id}">
+      <div class="circle-photo"><img src="${esc(a.img)}" alt="${esc(a.name)}" /></div>
+      <div class="circle-name">${esc(a.name)}</div>
+    </div>`).join('');
+}
+
+
+/* =========================================================
+   17. PLAYLISTS VIEW
+   ========================================================= */
+function renderPlaylists(){
+  const cards = Store.playlists.map(p=>`
+    <button class="playlist-card" data-act="open-playlist" data-id="${p.id}">
+      <div class="playlist-cover"><img src="${esc(p.img)}" alt="${esc(p.name)}" /></div>
+      <div class="playlist-name">${esc(p.name)}</div>
+    </button>`).join('');
+  playlistGrid.innerHTML = cards || `<div class="empty-note">No playlists yet.</div>`;
+}
+
+
+/* =========================================================
+   18. DRILL-DOWN VIEW (Categories / Artists / Playlists)
+   ========================================================= */
+function openDrilldown(kind, id){
+  let title, sub, songs, removable = false;
+  if(kind === 'category'){
+    const c = Store.categories.find(x=>x.id===id); if(!c) return;
+    title = c.name; songs = c.songs || [];
+  } else if(kind === 'artist'){
+    const a = Store.artists.find(x=>x.id===id); if(!a) return;
+    title = a.name; songs = a.songs || [];
+  } else if(kind === 'playlist'){
+    const p = Store.playlists.find(x=>x.id===id); if(!p) return;
+    title = p.name; songs = p.songs || [];
+  } else return;
+  sub = songs.length ? `${songs.length} song${songs.length!==1?'s':''}` : 'No songs added yet';
+  drillContext = { kind, id };
+  drillTitle.textContent = title;
+  drillSub.textContent = sub;
+  setList('drill_full', songs);
+  setList('drilldown', songs);
+  searchInput.value = '';
+  drillList.innerHTML = songs.length ? songs.map(s=> songVRowHTML(s, 'drilldown', removable)).join('') : `<div class="empty-note">Nothing here yet.</div>`;
+  showView('drilldown');
+}
+
+
+/* =========================================================
+   19. LIKED SONGS VIEW
+   ========================================================= */
+function renderLiked(){
+  const songs = allSongsPool().filter(isLiked);
+  setList('liked', songs);
+  likedList.innerHTML = songs.length ? songs.map(s=> songVRowHTML(s, 'liked', false)).join('') : `<div class="empty-note">No liked songs yet — tap the heart on any song.</div>`;
+}
+
+
+/* =========================================================
+   20. MY MUSIC VIEW
+   ========================================================= */
+function renderMyMusic(){
+  setList('mymusic', myMusic);
+  const barEl = document.getElementById('mymusicSelectBar');
+  if(!myMusic.length){
+    mymusicList.innerHTML = `<div class="empty-note">You haven't added any personal songs yet.</div>`;
+    if(barEl) barEl.innerHTML = '';
+    return;
+  }
+  if(barEl) barEl.innerHTML = renderSelectBar('mymusic', myMusic.map(songKey));
+  mymusicList.innerHTML = myMusic.map(s=> songVRowHTML(s, 'mymusic', true, 'mymusic', 'mymusic-remove')).join('');
+}
+
+
+/* =========================================================
+   21. PLAYER LOGIC
+   ========================================================= */
+function loadSong(song, listName){
+  currentQueue = songLists[listName] || [song];
+  currentSongIndex = currentQueue.findIndex(s=> songKey(s) === songKey(song));
+  if(currentSongIndex === -1){ currentQueue = [song]; currentSongIndex = 0; }
+  activateSong(song);
+}
+function activateSong(song){
+  currentSong = song;
+  /* ---- smooth song transition: briefly fade the artwork/title out, swap
+     content while invisible, then fade back in — no artificial delay, playback
+     starts immediately below via cueCurrentSong(). ---- */
+  const playerMetaEl = document.querySelector('.player-track .meta');
+  if(playerThumb) playerThumb.classList.add('fade');
+  if(playerMetaEl) playerMetaEl.classList.add('fade');
+  playerThumb.src = song.img; playerTitle.textContent = song.title; playerArtist.textContent = song.artist;
+  updateLikeUI(); resetSeek();
+  recordHistory(song);
+  refreshAllSongViews();
+  cueCurrentSong();
+  requestAnimationFrame(()=> requestAnimationFrame(()=>{
+    if(playerThumb) playerThumb.classList.remove('fade');
+    if(playerMetaEl) playerMetaEl.classList.remove('fade');
+  }));
+}
+async function cueCurrentSong(){
+  loadedVideoId = null;
+  if(isRealSong(currentSong) && ytPlayerReady && ytPlayer && ytPlayer.cueVideoById){
+    ytPlayer.cueVideoById(currentSong.videoId);
+    loadedVideoId = currentSong.videoId;
+  }
+}
+function setPlaying(state){
+  isPlaying = state; playPauseBtn.textContent = isPlaying ? '⏸' : '▶';
+  document.querySelector('.player').classList.toggle('is-playing', isPlaying); // drives the DJ glow / equalizer animation
+  if(isRealSong(currentSong) && ytPlayerReady && ytPlayer){
+    if(isPlaying){
+      if(loadedVideoId !== currentSong.videoId){ ytPlayer.loadVideoById(currentSong.videoId); loadedVideoId = currentSong.videoId; }
+      else ytPlayer.playVideo();
+    } else if(ytPlayer.pauseVideo){ ytPlayer.pauseVideo(); }
+  }
+  if(isPlaying){ startSeekTimer(); } else { clearInterval(seekTimer); }
+  refreshAllSongViews();
+}
+function refreshAllSongViews(){
+  if(currentView === 'home') rerenderHomeList();
+  if(currentView === 'drilldown' && drillContext){
+    const list = songLists['drilldown'] || [];
+    drillList.innerHTML = list.length ? list.map(s=> songVRowHTML(s, 'drilldown', drillContext.kind==='mymusic', drillContext.kind==='mymusic'?'drilldown':null, 'mymusic-remove')).join('') : `<div class="empty-note">Nothing here yet.</div>`;
+  }
+  if(currentView === 'liked') renderLiked();
+  if(currentView === 'mymusic') renderMyMusic();
+}
+function resetSeek(){
+  seekPercent = 0; seekFill.style.width = '0%'; curTimeEl.textContent = '0:00';
+  durTimeEl.textContent = formatTime(SONG_DURATION); clearInterval(seekTimer);
+}
+function startSeekTimer(){
+  clearInterval(seekTimer);
+  seekTimer = setInterval(()=>{
+    if(isRealSong(currentSong)){
+      if(ytPlayerReady && ytPlayer && ytPlayer.getDuration){
+        const dur = ytPlayer.getDuration() || 0;
+        const cur = ytPlayer.getCurrentTime() || 0;
+        if(dur > 0){
+          seekPercent = (cur / dur) * 100;
+          curTimeEl.textContent = formatTime(Math.round(cur));
+          durTimeEl.textContent = formatTime(Math.round(dur));
+          seekFill.style.width = seekPercent + '%';
+        }
+      }
+      return; // real audio drives playback end via onStateChange (ENDED)
+    }
+    seekPercent += (100 / SONG_DURATION);
+    if(seekPercent >= 100){ if(repeatMode){ seekPercent = 0; } else { playNext(); return; } }
+    updateSeekUI();
+  }, 1000);
+}
+function updateSeekUI(){ seekFill.style.width = seekPercent + '%'; curTimeEl.textContent = formatTime(Math.round((seekPercent/100) * SONG_DURATION)); }
+function formatTime(s){ if(!isFinite(s) || s < 0) s = 0; const m = Math.floor(s/60); const sec = String(Math.floor(s%60)).padStart(2,'0'); return `${m}:${sec}`; }
+
+seekBar.addEventListener('click', (e)=>{
+  const rect = seekBar.getBoundingClientRect();
+  const pct = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
+  seekPercent = pct;
+  if(isRealSong(currentSong) && ytPlayerReady && ytPlayer && ytPlayer.getDuration){
+    const dur = ytPlayer.getDuration() || 0;
+    if(dur > 0) ytPlayer.seekTo((pct/100) * dur, true);
+  }
+  updateSeekUI();
+});
+function playNext(){
+  if(!currentQueue.length) return;
+  let idx = isShuffle ? Math.floor(Math.random() * currentQueue.length) : (currentSongIndex + 1) % currentQueue.length;
+  currentSongIndex = idx;
+  activateSong(currentQueue[idx]);
+  setPlaying(true);
+}
+function playPrev(){
+  if(!currentQueue.length) return;
+  let idx = (currentSongIndex - 1 + currentQueue.length) % currentQueue.length;
+  currentSongIndex = idx;
+  activateSong(currentQueue[idx]);
+  setPlaying(true);
+}
+playPauseBtn.addEventListener('click', ()=>{ if(currentSong) setPlaying(!isPlaying); });
+nextBtn.addEventListener('click', playNext);
+prevBtn.addEventListener('click', playPrev);
+shuffleBtn.addEventListener('click', ()=>{ isShuffle = !isShuffle; shuffleBtn.classList.toggle('active', isShuffle); });
+repeatBtn.addEventListener('click', ()=>{ repeatMode = !repeatMode; repeatBtn.classList.toggle('active', repeatMode); });
+
+/* ---- mute / unmute ---- */
+const volumeRangeEl = document.getElementById('volumeRange');
+const muteBtn = document.getElementById('muteBtn');
+let isMuted = false, volumeBeforeMute = 70;
+function updateMuteIcon(){
+  muteBtn.textContent = isMuted ? '🔇' : '🔊';
+  muteBtn.classList.toggle('active', isMuted);
+}
+function setMuted(state){
+  isMuted = state;
+  if(isMuted){
+    volumeBeforeMute = Number(volumeRangeEl.value) || volumeBeforeMute || 70;
+    volumeRangeEl.value = 0;
+    if(ytPlayer && ytPlayer.mute) ytPlayer.mute();
+    if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(0);
+  } else {
+    volumeRangeEl.value = volumeBeforeMute || 70;
+    if(ytPlayer && ytPlayer.unMute) ytPlayer.unMute();
+    if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(Number(volumeRangeEl.value));
+  }
+  updateMuteIcon();
+}
+muteBtn.addEventListener('click', ()=> setMuted(!isMuted));
+volumeRangeEl.addEventListener('input', (e)=>{
+  e.target.style.setProperty('--v', e.target.value + '%');
+  const val = Number(e.target.value);
+  if(val === 0){
+    isMuted = true;
+    if(ytPlayer && ytPlayer.mute) ytPlayer.mute();
+  } else {
+    isMuted = false;
+    volumeBeforeMute = val;
+    if(ytPlayer && ytPlayer.unMute) ytPlayer.unMute();
+    if(ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(val);
+  }
+  updateMuteIcon();
+});
+
+
+/* =========================================================
+   22. LIKE (login-gated) — persisted server-side per user,
+   so it follows the account across browsers/devices/sessions.
+   ========================================================= */
+function updateLikeUI(){
+  const liked = currentSong ? isLiked(currentSong) : false;
+  likeBtn.textContent = liked ? '❤️' : '🤍';
+  likeBtn.classList.toggle('liked', liked);
+}
+function songPayloadFor(song){
+  return song.id ? { songId: song.id } : { song: { title: song.title, artist: song.artist, img: song.img, youtubeVideoId: song.videoId || undefined } };
+}
+async function toggleLike(song){
+  if(!isLoggedIn()){ pendingLikeSong = song; openLoginModal('user'); return; }
+  if(session.kind !== 'user'){ showToast('Only user accounts can like songs.'); return; }
+  const key = songKey(song);
+  const wasLiked = likedSongs.includes(key);
+  // Optimistic UI update, rolled back below if the request fails.
+  likedSongs = wasLiked ? likedSongs.filter(k=>k!==key) : [...likedSongs, key];
+  updateLikeUI();
+  refreshAllSongViews();
+  try{
+    if(wasLiked){
+      const target = allSongsPool().find(s=> songKey(s)===key) || myMusic.find(s=> songKey(s)===key) || song;
+      if(target && target.id) await api.del('/api/likes/' + target.id);
+    } else {
+      await api.post('/api/likes', songPayloadFor(song));
+    }
+  }catch(e){
+    likedSongs = wasLiked ? [...likedSongs, key] : likedSongs.filter(k=>k!==key);
+    updateLikeUI();
+    refreshAllSongViews();
+    showToast('Could not update like — ' + errMsg(e));
+  }
+}
+likeBtn.addEventListener('click', ()=>{ if(currentSong) toggleLike(currentSong); });
+
+
+/* =========================================================
+   23. RECENTLY LISTENED
+   ========================================================= */
+function recordHistory(song){
+  if(!isLoggedIn() || session.kind !== 'user') return;
+  listenHistory.unshift({ key: songKey(song), title: song.title, artist: song.artist, img: song.img, ts: nowTs() });
+  if(listenHistory.length > 200) listenHistory = listenHistory.slice(0, 200);
+  // Best-effort: a dropped history write shouldn't interrupt playback.
+  api.post('/api/history', songPayloadFor(song)).catch(()=>{});
+}
+function renderHistory(){
+  const list = document.getElementById('historyList');
+  let items = listenHistory;
+  if(historyFilter !== 'all'){
+    const hrs = Number(historyFilter);
+    const cutoff = nowTs() - hrs * 3600 * 1000;
+    items = items.filter(h=> h.ts >= cutoff);
+  }
+  if(!items.length){ list.innerHTML = `<div class="empty-note">No listening history in this range.</div>`; return; }
+  list.innerHTML = items.map(h=>`
+    <div class="song-vrow">
+      <img src="${esc(h.img)}" alt="${esc(h.title)}" />
+      <div class="info"><div class="t">${esc(h.title)}</div><div class="a">${esc(h.artist)}</div></div>
+      <div style="font-size:.72rem;color:var(--muted);flex-shrink:0;">${new Date(h.ts).toLocaleString()}</div>
+    </div>`).join('');
+}
+
+
+/* =========================================================
+   24. SETTINGS MENU
+   ========================================================= */
+function themeToggleRowHTML(){
+  const isDark = currentTheme !== 'light';
+  return `
+    <div class="toggle-row">
+      <div class="lbl">${isDark ? '🌙' : '☀️'} ${isDark ? 'Dark Mode' : 'Light Mode'}</div>
+      <button class="switch ${isDark ? 'on' : ''}" data-act="toggle-theme" title="Toggle theme"><span class="knob"></span></button>
+    </div>`;
+}
+function renderSettingsMenu(){
+  const list = document.getElementById('settingsMenuList');
+  if(!isLoggedIn()){
+    list.innerHTML = themeToggleRowHTML() + `
+      <button class="settings-item highlight" data-act="open-login-user">👤 Sign In</button>
+      <button class="settings-item" data-act="open-about">ℹ️ About Developer</button>`;
+    return;
+  }
+  let html = themeToggleRowHTML() + `
+    <button class="settings-item" data-act="open-profile-edit">🧑 Profile</button>
+    <button class="settings-item" data-act="open-history">🕓 Recently Listened</button>
+    <button class="settings-item" data-act="open-feedback">💬 Feedback</button>
+    <button class="settings-item" data-act="open-about">ℹ️ About Developer</button>`;
+  if(isAdmin()){
+    html += `<button class="settings-item highlight" data-act="nav" data-nav="dashboard">🛠️ Dashboard</button>`;
+  }
+  html += `<button class="settings-item danger" data-act="logout">🚪 Logout</button>`;
+  list.innerHTML = html;
+}
+document.getElementById('settingsHeaderBtn').addEventListener('click', ()=>{ renderSettingsMenu(); openModal(settingsModal); });
+
+
+/* =========================================================
+   25. PROFILE POPUP (header avatar)
+   ========================================================= */
+const profileBtn = document.getElementById('profileBtn');
+const profilePop = document.getElementById('profilePop');
+function refreshHeaderAvatar(){
+  if(isLoggedIn() && session.avatar){
+    profileBtn.innerHTML = `<img src="${session.avatar}" alt="avatar" />`;
+  } else {
+    profileBtn.innerHTML = '👤';
+  }
+}
+function refreshProfilePop(){
+  const roleWrap = document.getElementById('profileRoleWrap');
+  if(isLoggedIn()){
+    document.getElementById('profileName').textContent = session.name;
+    document.getElementById('profileEmail').textContent = session.email;
+    document.getElementById('profileActionBtn').textContent = 'Log Out';
+    const roleLabel = session.role === 'developer' ? 'Developer' : session.role === 'manager' ? 'Manager' : 'User';
+    roleWrap.innerHTML = `<span class="prole">${roleLabel}</span>`;
+  } else {
+    document.getElementById('profileName').textContent = 'Not signed in';
+    document.getElementById('profileEmail').textContent = 'Sign in to like songs';
+    document.getElementById('profileActionBtn').textContent = 'Sign In';
+    roleWrap.innerHTML = '';
+  }
+  refreshHeaderAvatar();
+}
+profileBtn.addEventListener('click', (e)=>{ e.stopPropagation(); refreshProfilePop(); profilePop.classList.toggle('open'); });
+document.addEventListener('click', (e)=>{ if(!profilePop.contains(e.target) && e.target !== profileBtn) profilePop.classList.remove('open'); });
+document.getElementById('profileActionBtn').addEventListener('click', ()=>{
+  if(isLoggedIn()){ doLogout(); }
+  else { pendingLikeSong = null; openLoginModal('user'); profilePop.classList.remove('open'); }
+});
+
+
+/* =========================================================
+   26. LOGIN MODAL LOGIC
+   ========================================================= */
+const loginRoleTabs = document.getElementById('loginRoleTabs');
+const adminSubTabs = document.getElementById('adminSubTabs');
+const userLoginForm = document.getElementById('userLoginForm');
+const adminLoginForm = document.getElementById('adminLoginForm');
+const userAuthModeTabs = document.getElementById('userAuthModeTabs');
+const registerOnlyFields = document.getElementById('registerOnlyFields');
+const userAuthSubmitBtn = document.getElementById('userAuthSubmitBtn');
+let loginRole = 'user';
+let adminSubRole = 'developer';
+let userAuthMode = 'login'; // 'login' | 'register'
+
+function updateUserAuthModeUI(){
+  userAuthModeTabs.querySelectorAll('.role-tab').forEach(t=> t.classList.toggle('active', t.dataset.authmode === userAuthMode));
+  registerOnlyFields.classList.toggle('hidden', userAuthMode !== 'register');
+  userAuthSubmitBtn.textContent = userAuthMode === 'register' ? 'Create Account & Sign In' : 'Sign In';
+  const emailLabel = document.querySelector('#loginEmail')?.closest('.field')?.querySelector('label');
+  if(emailLabel) emailLabel.textContent = userAuthMode === 'register' ? 'Email *' : 'Email or Mobile *';
+  document.getElementById('loginEmail').placeholder = userAuthMode === 'register' ? 'you@example.com' : 'Email or mobile number';
+}
+userAuthModeTabs.querySelectorAll('.role-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    userAuthMode = tab.dataset.authmode;
+    document.getElementById('loginError').textContent = '';
+    updateUserAuthModeUI();
+  });
+});
+
+function openLoginModal(defaultRole){
+  loginRole = defaultRole === 'admin' ? 'admin' : 'user';
+  userAuthMode = 'login';
+  updateUserAuthModeUI();
+  loginRoleTabs.querySelectorAll('.role-tab').forEach(t=> t.classList.toggle('active', t.dataset.role === loginRole));
+  userLoginForm.classList.toggle('hidden', loginRole !== 'user');
+  adminLoginForm.classList.toggle('hidden', loginRole !== 'admin');
+  document.getElementById('loginError').textContent = '';
+  document.getElementById('adminLoginError').textContent = '';
+  openModal(loginModal);
+}
+loginRoleTabs.querySelectorAll('.role-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    loginRole = tab.dataset.role;
+    loginRoleTabs.querySelectorAll('.role-tab').forEach(t=> t.classList.toggle('active', t===tab));
+    userLoginForm.classList.toggle('hidden', loginRole !== 'user');
+    adminLoginForm.classList.toggle('hidden', loginRole !== 'admin');
+  });
+});
+adminSubTabs.querySelectorAll('.role-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    adminSubRole = tab.dataset.subrole;
+    adminSubTabs.querySelectorAll('.role-tab').forEach(t=> t.classList.toggle('active', t===tab));
+  });
+});
+
+/* Avatar: staged locally for preview only. A chosen FILE is uploaded to
+   cloud storage after the account exists (avatar upload requires auth);
+   a typed URL is sent straight through at registration time. */
+let avatarPendingFile = null;
+const avatarInput = document.getElementById('avatarInput');
+const avatarPreview = document.getElementById('avatarPreview');
+avatarInput.addEventListener('change', ()=>{
+  const file = avatarInput.files[0]; if(!file) return;
+  avatarPendingFile = file;
+  delete avatarPreview.dataset.src;
+  const reader = new FileReader();
+  reader.onload = (e)=>{ avatarPreview.innerHTML = `<img src="${e.target.result}" alt="avatar" />`; };
+  reader.readAsDataURL(file);
+});
+document.getElementById('avatarUrlInput').addEventListener('input', (e)=>{
+  const val = e.target.value.trim();
+  if(val){ avatarPendingFile = null; avatarPreview.innerHTML = `<img src="${val}" alt="avatar" />`; avatarPreview.dataset.src = val; }
+});
+
+/* Runs after either register or login succeeds. */
+async function completeLogin(apiUser){
+  setSessionFromApiUser(apiUser);
+  await loadUserData().catch(()=> showToast('Signed in, but could not load your saved songs. Try refreshing.'));
+  closeModal(loginModal);
+  if(pendingLikeSong){ const s = pendingLikeSong; pendingLikeSong = null; toggleLike(s); }
+  refreshProfilePop();
+  renderNav();
+  refreshAllSongViews();
+  if(isAdmin() && currentView === 'dashboard') renderDashboard();
+}
+
+
+/* =========================================================
+   26B. YOUTUBE DATA API v3 — SEARCH, IFRAME PLAYBACK, BULK ADD
+   The API key lives only in the backend's environment now
+   (YOUTUBE_API_KEY) — the frontend just calls our own
+   /api/youtube/search proxy and never sees the key.
+   ========================================================= */
+async function ytSearch(query, maxResults){
+  const res = await api.get(`/api/youtube/search?q=${encodeURIComponent(query)}&maxResults=${encodeURIComponent(maxResults||8)}`);
+  return res.items || [];
+}
+
+function collectionPathFor(kind){ return kind === 'category' ? 'categories' : kind === 'artist' ? 'artists' : 'playlists'; }
+function collectionArrayFor(kind){ return kind === 'category' ? Store.categories : kind === 'artist' ? Store.artists : Store.playlists; }
+function replaceCollectionItem(kind, item){
+  const arr = collectionArrayFor(kind);
+  const idx = arr.findIndex(x=> x.id === item.id);
+  if(idx !== -1) arr[idx] = item; else arr.push(item);
+}
+
+/* ---- reusable single-result search modal ---- */
+let ytSearchContext = null; // { type:'mymusic' } | { type:'hero' } | { type:'subsong' }
+function openYtSearchModal(context){
+  ytSearchContext = context;
+  document.getElementById('ytQuery').value = '';
+  document.getElementById('ytResultsList').innerHTML = '';
+  document.getElementById('ytSearchError').textContent = '';
+  document.getElementById('ytSearchTitle').textContent =
+    context.type === 'hero' ? 'Search YouTube — Hero Item' :
+    context.type === 'mymusic' ? 'Search YouTube — Add to My Music' : 'Search YouTube — Add Song';
+  openModal(ytSearchModal);
+  setTimeout(()=> document.getElementById('ytQuery').focus(), 50);
+}
+async function runYtSearch(){
+  const q = document.getElementById('ytQuery').value.trim();
+  const err = document.getElementById('ytSearchError');
+  const list = document.getElementById('ytResultsList');
+  err.textContent = '';
+  if(!q){ err.textContent = 'Type a song or artist name to search.'; return; }
+  list.innerHTML = `<div class="empty-note">Searching…</div>`;
+  try{
+    const results = await ytSearch(q, 8);
+    if(!results.length){ list.innerHTML = `<div class="empty-note">No results found.</div>`; return; }
+    list.innerHTML = results.map(r=>`
+      <div class="admin-row yt-result-row" data-act="yt-pick" data-vid="${esc(r.videoId)}" data-title="${esc(r.title)}" data-channel="${esc(r.channel)}" data-thumb="${esc(r.thumb)}">
+        <img src="${esc(r.thumb)}" alt="${esc(r.title)}" />
+        <div class="info"><div class="t">${esc(r.title)}</div><div class="a">${esc(r.channel)}</div></div>
+      </div>`).join('');
+  } catch(e){
+    list.innerHTML = '';
+    err.textContent = 'Search failed — ' + errMsg(e);
+  }
+}
+document.getElementById('ytQuery').addEventListener('keydown', (e)=>{ if(e.key === 'Enter'){ e.preventDefault(); runYtSearch(); } });
+
+async function handleYtPick(el){
+  const vid = el.dataset.vid, title = el.dataset.title, channel = el.dataset.channel, thumb = el.dataset.thumb;
+  const ctx = ytSearchContext;
+  closeModal(ytSearchModal);
+  ytSearchContext = null;
+  if(!ctx) return;
+  const songPayload = { song: { title, artist: channel, img: thumb, youtubeVideoId: vid } };
+  try{
+    if(ctx.type === 'mymusic'){
+      if(!isLoggedIn()){ openLoginModal('user'); return; }
+      const res = await api.post('/api/mymusic', songPayload);
+      myMusic.unshift(res.item);
+      renderMyMusic();
+    } else if(ctx.type === 'hero'){
+      const res = await api.post('/api/hero', { mediaType:'YOUTUBE', title, artist: channel, img: thumb, youtubeVideoId: vid });
+      Store.hero.push({ id: res.item.id, title: res.item.title, artist: res.item.artist, caption: res.item.caption, img: res.item.img, mediaType: res.item.mediaType, videoId: res.item.videoId, mediaUrl: res.item.mediaUrl });
+      renderHero(); renderDashboard();
+    } else if(ctx.type === 'subsong'){
+      if(!dashSubEdit) return;
+      const { kind, id } = dashSubEdit;
+      const res = await api.post(`/api/${collectionPathFor(kind)}/${id}/songs`, songPayload);
+      replaceCollectionItem(kind, res.item);
+      if(kind==='category'){ renderCategoryCircles(); renderCategoryPills(); } else if(kind==='artist') renderArtists(); else renderPlaylists();
+      renderDashboard();
+    }
+  }catch(e){
+    showToast('Could not add song — ' + errMsg(e));
+  }
+}
+
+/* ---- bulk add (admin only), async rate-limited queue ---- */
+let bulkAddRunning = false;
+async function runBulkAdd(){
+  if(bulkAddRunning || !dashSubEdit) return;
+  const ta = document.getElementById('bulkNames');
+  const progressEl = document.getElementById('bulkProgress');
+  const err = document.getElementById('bulkError');
+  const btn = document.getElementById('bulkRunBtn');
+  err.textContent = '';
+  const names = ta.value.split(/[,\n]/).map(s=>s.trim()).filter(Boolean);
+  if(!names.length){ err.textContent = 'Paste at least one song or singer name.'; return; }
+  const { kind, id } = dashSubEdit;
+  bulkAddRunning = true; btn.disabled = true; btn.textContent = 'Running…';
+  let done = 0, failed = 0;
+  for(let i=0; i<names.length; i++){
+    const name = names[i];
+    progressEl.textContent = `Processing ${i+1} / ${names.length} — "${name}" (added ${done}, failed ${failed})`;
+    try{
+      const results = await ytSearch(name, 1);
+      if(results.length){
+        const r = results[0];
+        const res = await api.post(`/api/${collectionPathFor(kind)}/${id}/songs`, { song: { title: r.title, artist: r.channel, img: r.thumb, youtubeVideoId: r.videoId } });
+        replaceCollectionItem(kind, res.item);
+        done++;
+      } else failed++;
+    } catch(e){ failed++; }
+    await new Promise(r=> setTimeout(r, 350)); // gentle pacing to avoid hitting API rate limits
+  }
+  progressEl.textContent = `Done — added ${done} song(s), ${failed} failed/skipped, out of ${names.length}.`;
+  bulkAddRunning = false; btn.disabled = false; btn.textContent = 'Run Bulk Add';
+  ta.value = '';
+  setTimeout(()=> renderDashboard(), 1500);
+}
+
+/* ---- YouTube IFrame API — hidden audio engine synced to the bottom player ---- */
+let ytPlayer = null, ytApiReady = false, ytPlayerReady = false, loadedVideoId = null;
+function isRealSong(song){ return !!(song && song.videoId); }
+function loadYouTubeIframeAPI(){
+  if(window.YT && window.YT.Player){ ytApiReady = true; initYtPlayer(); return; }
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady = function(){ ytApiReady = true; initYtPlayer(); };
+}
+function initYtPlayer(){
+  try{
+    ytPlayer = new YT.Player('ytPlayerTarget', {
+      height: '1', width: '1',
+      playerVars: { autoplay: 0, controls: 0, disablekb: 1, modestbranding: 1, playsinline: 1 },
+      events: {
+        onReady: ()=>{ ytPlayerReady = true; if(currentSong && isPlaying && isRealSong(currentSong)) setPlaying(true); },
+        onStateChange: onYtPlayerStateChange
+      }
+    });
+  }catch(e){ /* IFrame API blocked (e.g. offline sandbox) — real playback simply won't start */ }
+}
+function onYtPlayerStateChange(e){
+  if(!currentSong || !isRealSong(currentSong) || !window.YT) return;
+  if(e.data === YT.PlayerState.ENDED){
+    if(repeatMode){ ytPlayer.seekTo(0); ytPlayer.playVideo(); } else playNext();
+  } else if(e.data === YT.PlayerState.PLAYING){
+    isPlaying = true; playPauseBtn.textContent = '⏸'; refreshAllSongViews();
+  } else if(e.data === YT.PlayerState.PAUSED){
+    isPlaying = false; playPauseBtn.textContent = '▶'; refreshAllSongViews();
+  }
+}
+loadYouTubeIframeAPI();
+
+/* ---- generic dual image upload: any <input type=file data-filetarget="fieldId">
+   now uploads the chosen photo to cloud storage and writes the resulting HTTPS
+   URL into that text field, so existing "Image URL" handlers pick it up
+   unchanged. Used for category/artist/playlist covers (song covers always
+   come from the YouTube thumbnail instead). ---- */
+document.body.addEventListener('change', (e)=>{
+  const el = e.target;
+  if(!(el.matches && el.matches('input[type=file][data-filetarget]'))) return;
+  const file = el.files[0]; if(!file) return;
+  const targetId = el.dataset.filetarget;
+  const hidden = document.getElementById(targetId);
+  const preview = document.getElementById(targetId + 'Preview');
+  if(preview) preview.innerHTML = `<span class="upload-spinner">Uploading…</span>`;
+  api.upload('/api/uploads/cover', file).then((uploaded)=>{
+    if(hidden) hidden.value = uploaded.url;
+    if(preview) preview.innerHTML = `<img src="${esc(uploaded.url)}" alt="preview" />`;
+  }).catch((err)=>{
+    if(preview) preview.innerHTML = '📷';
+    showToast('Upload failed — ' + errMsg(err));
+  });
+});
+
+/* ---- hero photo/video upload inputs (hidden, triggered via the
+   Upload Photo / Upload Video buttons in the hero admin panel) ---- */
+document.body.addEventListener('change', (e)=>{
+  const el = e.target;
+  if(el.id !== 'heroPhotoFile' && el.id !== 'heroVideoFile') return;
+  const file = el.files[0]; if(!file) return;
+  handleHeroMediaFile(file, el.id === 'heroPhotoFile' ? 'photo' : 'video');
+  el.value = ''; // allow re-selecting the same file later
+});
+
+/* ---- developer photo upload input (hidden, Developer Dashboard only —
+   see renderDevPhotoAdmin() / isDeveloper() gating) ---- */
+document.body.addEventListener('change', (e)=>{
+  const el = e.target;
+  if(el.id !== 'devPhotoFile') return;
+  if(!isDeveloper()) return; // safety net: only the Developer account may change this
+  const file = el.files[0]; if(!file) return;
+  handleDevPhotoFile(file);
+  el.value = '';
+});
+
+
+/* =========================================================
+   27. DELEGATED CLICK HANDLER (single source of truth)
+   ========================================================= */
+const handlers = {
+  'nav': (el)=>{ showView(el.dataset.nav); if(el.dataset.nav === 'dashboard') ensureDashboardData(dashTab); },
+  'pill': (el)=>{ currentCategory = el.dataset.cat; searchInput.value=''; renderCategoryPills(); renderSongs(); },
+  'song-click': (el)=>{
+    if(!isLoggedIn()){ openLoginModal('user'); return; }
+    const key = el.dataset.key; const list = el.dataset.list;
+    const arr = songLists[list] || [];
+    const song = arr.find(s=> songKey(s) === key);
+    if(!song) return;
+    if(currentSong && songKey(currentSong) === key){ setPlaying(!isPlaying); }
+    else { loadSong(song, list); setPlaying(true); }
+  },
+  'song-like': (el)=>{
+    const key = el.dataset.key;
+    const song = allSongsPool().find(s=> songKey(s)===key) || myMusic.find(s=> songKey(s)===key) || (currentSong && songKey(currentSong)===key ? currentSong : null);
+    if(song) toggleLike(song);
+  },
+  'hero-play': (el)=>{
+    if(!isLoggedIn()){ openLoginModal('user'); return; }
+    const h = Store.hero[Number(el.dataset.i)];
+    if(!h) return;
+    const song = { id: h.id, title: h.title, artist: h.artist, img: h.img, videoId: h.videoId || null };
+    setList('hero', Store.hero.map(x=>({id:x.id, title:x.title,artist:x.artist,img:x.img,videoId:x.videoId||null})));
+    loadSong(song, 'hero'); setPlaying(true);
+  },
+  'hero-dot': (el)=> goToHero(Number(el.dataset.i)),
+  'hero-play-video': (el)=> openHeroVideoModal(el.dataset.mediaurl),
+  'open-category': (el)=> openDrilldown('category', el.dataset.id),
+  'open-artist': (el)=> openDrilldown('artist', el.dataset.id),
+  'open-playlist': (el)=> openDrilldown('playlist', el.dataset.id),
+  'drill-back': ()=> showView(lastGridView),
+  'open-login-user': ()=>{ closeModal(settingsModal); openLoginModal('user'); },
+  'open-profile-edit': ()=>{
+    if(!isLoggedIn()) return;
+    document.getElementById('peName').value = session.name || '';
+    document.getElementById('peEmail').value = session.email || '';
+    document.getElementById('peAvatarPreview').innerHTML = session.avatar ? `<img src="${session.avatar}" />` : '📷';
+    document.getElementById('peAvatarUrlInput').value = '';
+    document.getElementById('peError').textContent = '';
+    document.getElementById('pePwdCurrent').value = '';
+    document.getElementById('pePwdNew').value = '';
+    document.getElementById('pePwdError').textContent = '';
+    delete document.getElementById('peAvatarPreview').dataset.src;
+    peAvatarPendingFile = null;
+    closeModal(settingsModal); openModal(profileEditModal);
+  },
+  'open-history': ()=>{ historyFilter='all'; document.querySelectorAll('#historyFilterRow .pill').forEach(p=>p.classList.toggle('active', p.dataset.hfilter==='all')); renderHistory(); closeModal(settingsModal); openModal(historyModal); },
+  'open-feedback': ()=>{
+    if(!isLoggedIn()){ closeModal(settingsModal); openLoginModal('user'); return; }
+    document.getElementById('fbMessage').value=''; document.getElementById('fbError').textContent=''; document.getElementById('fbOk').textContent='';
+    closeModal(settingsModal); openModal(feedbackModal);
+  },
+  'open-about': ()=>{ renderAboutDevPhoto(); closeModal(settingsModal); openModal(aboutModal); },
+  'logout': ()=> { closeModal(settingsModal); doLogout(); },
+  'mymusic-remove': (el)=> openConfirmModal(()=> removeMyMusicSong(el.dataset.key)),
+  'open-yt-search-mymusic': ()=>{ if(!isLoggedIn()){ openLoginModal('user'); return; } openYtSearchModal({type:'mymusic'}); },
+  'open-yt-search-hero': ()=> openYtSearchModal({type:'hero'}),
+  'open-yt-search-subsong': ()=> openYtSearchModal({type:'subsong'}),
+  'yt-search-run': ()=> runYtSearch(),
+  'yt-pick': (el)=> handleYtPick(el),
+  'bulk-add-run': ()=> runBulkAdd(),
+  'profile-save': ()=> saveProfileEdit(),
+  'change-password-save': ()=> submitChangePassword(),
+  'feedback-submit': ()=> submitFeedback(),
+  'feedback-resolve': (el)=> resolveFeedback(el.dataset.id),
+  'feedback-delete': (el)=> deleteFeedback(el.dataset.id),
+  'user-login-submit': ()=> submitUserAuth(),
+  'admin-login-submit': ()=> submitAdminLogin(),
+  'dash-tab': (el)=>{ dashTab = el.dataset.tab; renderDashboard(); ensureDashboardData(dashTab); },
+  'admin-remove-hero': (el)=> removeHeroItem(el.dataset.id),
+  'admin-save-brand': ()=> saveBrandName(),
+  'admin-add-category': ()=> addCategory(),
+  'admin-remove-category': (el)=> removeCollectionItem('category', el.dataset.id),
+  'admin-open-category': (el)=>{ dashSubEdit = { kind:'category', id: el.dataset.id }; renderDashboard(); },
+  'admin-add-artist': ()=> addArtist(),
+  'admin-remove-artist': (el)=> removeCollectionItem('artist', el.dataset.id),
+  'admin-open-artist': (el)=>{ dashSubEdit = { kind:'artist', id: el.dataset.id }; renderDashboard(); },
+  'admin-add-playlist': ()=> addPlaylist(),
+  'admin-remove-playlist': (el)=> removeCollectionItem('playlist', el.dataset.id),
+  'admin-open-playlist': (el)=>{ dashSubEdit = { kind:'playlist', id: el.dataset.id }; renderDashboard(); },
+  'admin-sub-back': ()=>{ dashSubEdit = null; renderDashboard(); },
+  'admin-sub-remove-song': (el)=> openConfirmModal(()=> removeSongFromSub(el.dataset.key)),
+  'manager-add': ()=> addManager(),
+  'manager-remove': (el)=> removeManager(el.dataset.id),
+  'toggle-theme': ()=> toggleTheme(),
+  'toggle-login-log': ()=>{ showLoginLog = !showLoginLog; renderDashboard(); if(showLoginLog) ensureDashboardData('loginlog'); },
+  'confirm-done': ()=>{
+    const cb = confirmCallback; confirmCallback = null;
+    closeModal(confirmModal);
+    if(cb) cb();
+  },
+  'confirm-cancel': ()=>{ confirmCallback = null; closeModal(confirmModal); },
+
+  /* ---- hero Upload Photo / Upload Video ---- */
+  'trigger-hero-photo': ()=> document.getElementById('heroPhotoFile').click(),
+  'trigger-hero-video': ()=> document.getElementById('heroVideoFile').click(),
+  'trigger-dev-photo': ()=>{ if(isDeveloper()) document.getElementById('devPhotoFile').click(); },
+  'dev-photo-remove': ()=>{ if(isDeveloper()) openConfirmModal(()=> removeDevPhoto()); },
+  'hero-add-to-desktop': ()=> commitHeroUpload(),
+  'hero-cancel-upload': ()=> cancelHeroUpload(),
+
+  /* ---- generic multi-select + bulk delete (hero items, songs, categories,
+     artists, playlists, my music — see section 0C) ---- */
+  'sel-toggle': (el)=>{ toggleSel(el.dataset.listid, el.dataset.key); rerenderListOwner(el.dataset.listid); },
+  'sel-all': (el)=>{
+    const listId = el.dataset.listid;
+    const allKeys = getAllKeysForList(listId);
+    const sel = getSel(listId);
+    const allSelected = allKeys.length > 0 && allKeys.every(k=> sel.has(k));
+    selectionState[listId] = allSelected ? new Set() : new Set(allKeys);
+    rerenderListOwner(listId);
+  },
+  'sel-delete': (el)=> performBulkDelete(el.dataset.listid),
+
+  /* ---- three-dot (⋮) menu on song rows — opens/closes the row's dropdown
+     (Select / Like / Remove) and guarantees only one is ever open at once. ---- */
+  'song-menu-toggle': (el, e)=>{
+    if(e) e.stopPropagation();
+    const menuId = el.dataset.menuid;
+    document.querySelectorAll('.song-menu.open').forEach(m=>{ if(m.dataset.menuid !== menuId) m.classList.remove('open'); });
+    const menu = el.closest('.song-menu');
+    if(menu) menu.classList.toggle('open');
+  }
+};
+document.body.addEventListener('click', (e)=>{
+  const el = e.target.closest('[data-act]');
+  if(!el) return;
+  const fn = handlers[el.dataset.act];
+  if(fn) fn(el, e);
+});
+/* clicking anywhere outside an open three-dot dropdown closes it */
+document.addEventListener('click', (e)=>{
+  if(e.target.closest('.song-menu')) return;
+  document.querySelectorAll('.song-menu.open').forEach(m=> m.classList.remove('open'));
+});
+document.getElementById('historyFilterRow').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-hfilter]'); if(!btn) return;
+  historyFilter = btn.dataset.hfilter;
+  document.querySelectorAll('#historyFilterRow .pill').forEach(p=> p.classList.toggle('active', p===btn));
+  renderHistory();
+});
+
+
+/* =========================================================
+   28. MY MUSIC ACTIONS
+   ========================================================= */
+async function removeMyMusicSong(key){
+  const song = myMusic.find(s=> songKey(s) === key);
+  myMusic = myMusic.filter(s=> songKey(s) !== key);
+  renderMyMusic();
+  if(song && song.id){
+    try{ await api.del('/api/mymusic/' + song.id); }
+    catch(e){ showToast('Could not remove that song — ' + errMsg(e)); }
+  }
+}
+
+
+/* =========================================================
+   28B. GENERIC MULTI-SELECT + BULK DELETE — dispatch table
+   ========================================================= */
+function getAllKeysForList(listId){
+  if(listId === 'hero') return Store.hero.map(h=> h.id);
+  if(listId === 'mymusic') return myMusic.map(songKey);
+  if(listId === 'categories') return Store.categories.map(c=> c.id);
+  if(listId === 'artists') return Store.artists.map(a=> a.id);
+  if(listId === 'playlists') return Store.playlists.map(p=> p.id);
+  if(listId.startsWith('subsongs:')){
+    const [, kind, id] = listId.split(':');
+    const item = collectionArrayFor(kind).find(x=> x.id===id);
+    return item ? (item.songs||[]).map(songKey) : [];
+  }
+  return [];
+}
+function rerenderListOwner(listId){
+  if(listId === 'mymusic') renderMyMusic();
+  else if(listId === 'liked') renderLiked();
+  else renderDashboard(); // hero / categories / artists / playlists / subsongs:* all live in the dashboard
+}
+async function performBulkDelete(listId){
+  const sel = getSel(listId);
+  if(!sel.size){ showToast('Please select at least one item.'); return; }
+  openConfirmModal(async ()=>{
+    const keys = new Set(sel);
+    const count = keys.size;
+    try{
+      if(listId === 'hero'){
+        await api.post('/api/hero/bulk-delete', { ids: Array.from(keys) });
+        Store.hero = Store.hero.filter(h=> !keys.has(h.id));
+        renderHero();
+      } else if(listId === 'mymusic'){
+        const songIds = myMusic.filter(s=> keys.has(songKey(s))).map(s=> s.id).filter(Boolean);
+        await api.post('/api/mymusic/bulk-delete', { songIds });
+        myMusic = myMusic.filter(s=> !keys.has(songKey(s)));
+        refreshAllSongViews();
+      } else if(listId === 'categories'){
+        await api.post('/api/categories/bulk-delete', { ids: Array.from(keys) });
+        Store.categories = Store.categories.filter(c=> !keys.has(c.id));
+        renderCategoryCircles(); renderCategoryPills();
+      } else if(listId === 'artists'){
+        await api.post('/api/artists/bulk-delete', { ids: Array.from(keys) });
+        Store.artists = Store.artists.filter(a=> !keys.has(a.id));
+        renderArtists();
+      } else if(listId === 'playlists'){
+        await api.post('/api/playlists/bulk-delete', { ids: Array.from(keys) });
+        Store.playlists = Store.playlists.filter(p=> !keys.has(p.id));
+        renderPlaylists();
+      } else if(listId.startsWith('subsongs:')){
+        const [, kind, id] = listId.split(':');
+        const item = collectionArrayFor(kind).find(x=> x.id===id);
+        if(item){
+          const songIds = (item.songs||[]).filter(s=> keys.has(songKey(s))).map(s=> s.id).filter(Boolean);
+          await api.post(`/api/${collectionPathFor(kind)}/${id}/songs/bulk-delete`, { songIds });
+          item.songs = (item.songs||[]).filter(s=> !keys.has(songKey(s)));
+        }
+      }
+      clearSel(listId);
+      rerenderListOwner(listId);
+      showToast(`Removed ${count} item${count!==1?'s':''}.`);
+    }catch(e){
+      showToast('Could not remove selected items — ' + errMsg(e));
+    }
+  });
+}
+
+
+/* =========================================================
+   29. PROFILE EDIT
+   ========================================================= */
+let peAvatarPendingFile = null;
+const peAvatarInput = document.getElementById('peAvatarInput');
+peAvatarInput.addEventListener('change', ()=>{
+  const file = peAvatarInput.files[0]; if(!file) return;
+  peAvatarPendingFile = file;
+  delete document.getElementById('peAvatarPreview').dataset.src;
+  const reader = new FileReader();
+  reader.onload = (e)=>{ document.getElementById('peAvatarPreview').innerHTML = `<img src="${e.target.result}" />`; };
+  reader.readAsDataURL(file);
+});
+document.getElementById('peAvatarUrlInput').addEventListener('input', (e)=>{
+  const val = e.target.value.trim();
+  const pv = document.getElementById('peAvatarPreview');
+  if(val){ peAvatarPendingFile = null; pv.innerHTML = `<img src="${val}" />`; pv.dataset.src = val; }
+});
+async function saveProfileEdit(){
+  const name = document.getElementById('peName').value.trim();
+  const email = document.getElementById('peEmail').value.trim();
+  const err = document.getElementById('peError');
+  if(!name){ err.textContent = 'Name is required.'; return; }
+  err.textContent = '';
+  const btn = document.querySelector('#profileEditModal [data-act="profile-save"]');
+  if(btn){ btn.disabled = true; btn.textContent = 'Saving…'; }
+  try{
+    let avatarUrl;
+    if(peAvatarPendingFile){
+      const uploaded = await api.upload('/api/uploads/avatar', peAvatarPendingFile);
+      avatarUrl = uploaded.url;
+    } else {
+      const urlVal = document.getElementById('peAvatarPreview').dataset.src;
+      if(urlVal) avatarUrl = urlVal;
+    }
+    const payload = { name };
+    if(session.kind === 'user' && email) payload.email = email;
+    if(avatarUrl) payload.avatarUrl = avatarUrl;
+    const res = await api.patch('/api/auth/me', payload);
+    setSessionFromApiUser(res.user);
+    peAvatarPendingFile = null;
+    refreshProfilePop();
+    closeModal(profileEditModal);
+    showToast('Profile updated.');
+  }catch(e){
+    err.textContent = errMsg(e);
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Save Changes'; }
+  }
+}
+async function submitChangePassword(){
+  const cur = document.getElementById('pePwdCurrent').value;
+  const next = document.getElementById('pePwdNew').value;
+  const err = document.getElementById('pePwdError');
+  err.className = 'form-error';
+  if(!cur || !next){ err.textContent = 'Both current and new password are required.'; return; }
+  err.textContent = '';
+  try{
+    await api.post('/api/auth/change-password', { currentPassword: cur, newPassword: next });
+    document.getElementById('pePwdCurrent').value = '';
+    document.getElementById('pePwdNew').value = '';
+    err.className = 'form-ok';
+    err.textContent = 'Password updated.';
+  }catch(e){
+    err.className = 'form-error';
+    err.textContent = errMsg(e);
+  }
+}
+
+
+/* =========================================================
+   30. FEEDBACK
+   ========================================================= */
+async function submitFeedback(){
+  const msg = document.getElementById('fbMessage').value.trim();
+  const err = document.getElementById('fbError');
+  const ok = document.getElementById('fbOk');
+  ok.textContent = '';
+  if(!msg){ err.textContent = 'Please write a message before submitting.'; return; }
+  if(!isLoggedIn()){ err.textContent = 'Please sign in to submit feedback.'; return; }
+  err.textContent = '';
+  try{
+    await api.post('/api/feedback', { message: msg });
+    ok.textContent = 'Thanks — your feedback has been submitted!';
+    document.getElementById('fbMessage').value = '';
+  }catch(e){
+    err.textContent = errMsg(e);
+  }
+}
+
+
+/* =========================================================
+   31. AUTH: USER LOGIN / REGISTER
+   Real accounts now — Argon2-hashed passwords, verified
+   server-side. userAuthMode (set in section 26) decides
+   whether this calls /api/auth/register or /api/auth/login.
+   ========================================================= */
+async function submitUserAuth(){
+  const errorEl = document.getElementById('loginError');
+  const identifier = document.getElementById('loginEmail').value.trim(); // email (register) or email/mobile (login)
+  const password = document.getElementById('loginPassword').value;
+  errorEl.textContent = '';
+
+  if(userAuthMode === 'register'){
+    const name = document.getElementById('loginName').value.trim();
+    const mobile = document.getElementById('loginMobile').value.trim();
+    if(!name || !identifier || !mobile || !password){ errorEl.textContent = 'Name, email, mobile number, and password are required.'; return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)){ errorEl.textContent = 'Please enter a valid email address.'; return; }
+    if(!/^[0-9+\-\s()]{7,15}$/.test(mobile)){ errorEl.textContent = 'Please enter a valid mobile number.'; return; }
+    if(password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)){
+      errorEl.textContent = 'Password must be at least 8 characters and include a letter and a number.'; return;
+    }
+    const btn = userAuthSubmitBtn; btn.disabled = true; btn.textContent = 'Creating account…';
+    try{
+      const avatarUrlTyped = avatarPreview.dataset.src || undefined;
+      const res = await api.post('/api/auth/register', { name, email: identifier, mobile, password, avatarUrl: avatarPendingFile ? undefined : avatarUrlTyped });
+      let apiUser = res.user;
+      if(avatarPendingFile){
+        try{
+          const uploaded = await api.upload('/api/uploads/avatar', avatarPendingFile);
+          const patched = await api.patch('/api/auth/me', { avatarUrl: uploaded.url });
+          apiUser = patched.user;
+        }catch(e){ /* account still created fine even if the avatar upload failed */ }
+      }
+      resetUserLoginForm();
+      await completeLogin(apiUser);
+    }catch(e){
+      errorEl.textContent = errMsg(e);
+    }finally{
+      btn.disabled = false; updateUserAuthModeUI();
+    }
+  } else {
+    if(!identifier || !password){ errorEl.textContent = 'Email/mobile and password are required.'; return; }
+    const btn = userAuthSubmitBtn; btn.disabled = true; btn.textContent = 'Signing in…';
+    try{
+      const res = await api.post('/api/auth/login', { identifier, password });
+      resetUserLoginForm();
+      await completeLogin(res.user);
+    }catch(e){
+      errorEl.textContent = errMsg(e);
+    }finally{
+      btn.disabled = false; updateUserAuthModeUI();
+    }
+  }
+}
+function resetUserLoginForm(){
+  document.getElementById('loginName').value=''; document.getElementById('loginEmail').value='';
+  document.getElementById('loginMobile').value=''; document.getElementById('loginPassword').value='';
+  document.getElementById('avatarUrlInput').value='';
+  avatarPreview.innerHTML = '📷'; delete avatarPreview.dataset.src;
+  avatarPendingFile = null;
+}
+
+/* =========================================================
+   32. AUTH: ADMIN LOGIN (Developer / Manager)
+   ========================================================= */
+async function submitAdminLogin(){
+  const idf = document.getElementById('adminIdentifier').value.trim();
+  const pwd = document.getElementById('adminPassword').value;
+  const errorEl = document.getElementById('adminLoginError');
+  if(!idf || !pwd){ errorEl.textContent = 'Please enter your credentials.'; return; }
+  errorEl.textContent = '';
+  const btn = document.querySelector('#adminLoginForm [data-act="admin-login-submit"]');
+  if(btn){ btn.disabled = true; btn.textContent = 'Signing in…'; }
+  try{
+    const res = await api.post('/api/auth/admin/login', { identifier: idf, password: pwd });
+    document.getElementById('adminIdentifier').value=''; document.getElementById('adminPassword').value='';
+    await completeLogin(res.user);
+  }catch(e){
+    errorEl.textContent = errMsg(e);
+  }finally{
+    if(btn){ btn.disabled = false; btn.textContent = 'Sign In'; }
+  }
+}
+
+/* =========================================================
+   33. LOGOUT
+   ========================================================= */
+async function doLogout(){
+  try{ await api.post('/api/auth/logout'); }catch(e){ /* cookies are cleared server-side regardless */ }
+  session = null;
+  likedSongs = []; listenHistory = []; myMusic = [];
+  clearSel('mymusic');
+  refreshProfilePop();
+  renderNav();
+  if(currentView === 'dashboard' || currentView === 'mymusic') showView('home');
+  refreshAllSongViews();
+}
+
+
+/* =========================================================
+   34. DASHBOARD
+   ========================================================= */
+let dashSubEdit = null; // { kind, id } when editing a category/artist/playlist's songs
+let dashLoading = {}; // tab -> bool, drives simple "Loading…" states below
+const DASH_TABS = [
+  { key:'hero',       label:'Home / Hero Admin', icon:'🎬' },
+  { key:'brand',      label:'Brand Admin',       icon:'🏷️' },
+  { key:'categories', label:'Categories Admin',  icon:'🗂️' },
+  { key:'artists',    label:'Artists Admin',     icon:'🎤' },
+  { key:'playlists',  label:'Playlists Admin',   icon:'📃' },
+  { key:'feedback',   label:'Feedback Viewer',   icon:'💬' },
+  { key:'users',      label:'Users Viewer',      icon:'👥' },
+  { key:'devphoto',   label:'Developer Photo',   icon:'🧑‍💻', devOnly:true },
+  { key:'managers',   label:'Manager Admin',     icon:'🛡️', devOnly:true }
+];
+
+/* Feedback, the users/login-log viewer, and the manager list are all
+   admin-only and can grow large, so — unlike the catalog data loaded
+   once in loadAppData() — they're fetched lazily the first time their
+   tab is opened, via ensureDashboardData() below. */
+async function ensureDashboardData(tab){
+  if(!['feedback','users','managers','loginlog'].includes(tab)) return;
+  dashLoading[tab] = true; renderDashboard();
+  try{
+    if(tab === 'feedback'){
+      const res = await api.get('/api/admin/feedback');
+      Store.feedback = res.items;
+    } else if(tab === 'users'){
+      const [usersRes, logsRes] = await Promise.all([
+        api.get('/api/admin/users?pageSize=100'),
+        api.get('/api/admin/login-logs?pageSize=100')
+      ]);
+      Store.users = usersRes.items;
+      Store.loginlog = logsRes.items.map(l=> ({ who:l.who, role:l.role, ts: new Date(l.createdAt).getTime() }));
+      Store.loginTotal = logsRes.total;
+    } else if(tab === 'managers'){
+      const res = await api.get('/api/managers');
+      Store.managers = res.items;
+    } else if(tab === 'loginlog'){
+      const logsRes = await api.get('/api/admin/login-logs?pageSize=100');
+      Store.loginlog = logsRes.items.map(l=> ({ who:l.who, role:l.role, ts: new Date(l.createdAt).getTime() }));
+      Store.loginTotal = logsRes.total;
+    }
+  }catch(e){
+    showToast('Could not load this section — ' + errMsg(e));
+  }finally{
+    dashLoading[tab] = false;
+    renderDashboard();
+  }
+}
+
+function renderDashboard(){
+  if(!isAdmin()) return;
+  document.getElementById('dashSub').textContent = isDeveloper() ? 'Full developer access.' : 'Manager access — content & feedback tools.';
+  const tabsEl = document.getElementById('dashTabs');
+  tabsEl.innerHTML = DASH_TABS.filter(t=> !t.devOnly || isDeveloper()).map(t=>
+    `<button class="dash-tab ${t.key===dashTab?'active':''}" data-act="dash-tab" data-tab="${t.key}"><span class="ic">${t.icon}</span>${t.label}</button>`).join('');
+  const content = document.getElementById('dashContent');
+  if(dashSubEdit){ content.innerHTML = renderDashSubEditor(); return; }
+  switch(dashTab){
+    case 'hero': content.innerHTML = renderHeroAdmin(); break;
+    case 'brand': content.innerHTML = renderBrandAdmin(); break;
+    case 'categories': content.innerHTML = renderListAdmin('category'); break;
+    case 'artists': content.innerHTML = renderListAdmin('artist'); break;
+    case 'playlists': content.innerHTML = renderListAdmin('playlist'); break;
+    case 'feedback': content.innerHTML = renderFeedbackAdmin(); break;
+    case 'users': content.innerHTML = renderUsersAdmin(); break;
+    case 'devphoto': content.innerHTML = isDeveloper() ? renderDevPhotoAdmin() : '<div class="empty-note">Developer access only.</div>'; break;
+    case 'managers': content.innerHTML = isDeveloper() ? renderManagersAdmin() : '<div class="empty-note">Developer access only.</div>'; break;
+    default: content.innerHTML = '';
+  }
+}
+function renderHeroAdmin(){
+  const rows = Store.hero.map(h=>{
+    const label = h.mediaType === 'photo' ? '📷 Photo' : h.mediaType === 'video' ? '🎥 Video' : (h.artist || 'YouTube');
+    const titleText = h.title || h.caption || '(no caption)';
+    const checked = getSel('hero').has(h.id);
+    return `
+    <div class="admin-row">
+      <input type="checkbox" class="sel-check" data-act="sel-toggle" data-listid="hero" data-key="${h.id}" ${checked?'checked':''} />
+      <img class="admin-thumb" src="${esc(h.img)}" />
+      <div class="info"><div class="t">${esc(titleText)}</div><div class="a">${esc(label)}</div></div>
+      <button class="row-remove" data-act="admin-remove-hero" data-id="${h.id}">Remove</button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="dash-card">
+      <h4>Add featured hero item</h4>
+      <p class="api-key-note">Search YouTube and tap a result — its thumbnail, title, and channel are used as the hero cover automatically. Or upload your own photo or video (stored in cloud storage).</p>
+      <div class="hero-admin-btns">
+        <button class="submit-btn" data-act="open-yt-search-hero">🔎 Search YouTube</button>
+        <button class="submit-btn" data-act="trigger-hero-photo">📷 Upload Photo</button>
+        <button class="submit-btn" data-act="trigger-hero-video">🎥 Upload Video</button>
+      </div>
+      ${heroUploadStage ? renderHeroUploadStage() : ''}
+    </div>
+    <div class="dash-card">
+      <h4>Current hero items</h4>
+      ${Store.hero.length ? renderSelectBar('hero', Store.hero.map(h=>h.id)) : ''}
+      <div class="admin-list">${rows || '<div class="empty-note">No hero items yet.</div>'}</div>
+    </div>`;
+}
+function renderBrandAdmin(){
+  return `
+    <div class="dash-card">
+      <h4>App name</h4>
+      <div class="field"><label>Displayed in the top-left corner</label><input id="brandInput" type="text" value="${esc(Store.brand)}" /></div>
+      <div class="form-error" id="brandError"></div>
+      <button class="submit-btn" data-act="admin-save-brand">Save Brand Name</button>
+    </div>
+    <div class="dash-card">
+      <h4>YouTube Data API Key</h4>
+      <p class="api-key-note">Configured once by whoever deploys this app, via the <code>YOUTUBE_API_KEY</code> environment variable on the backend server. It is never stored in the browser and never sent to the frontend.</p>
+    </div>`;
+}
+/* ---- Developer Photo Admin — shown only inside the Developer Dashboard,
+   only ever reachable by the Developer account (see DASH_TABS/renderDashboard
+   devOnly gating and isDeveloper() checks throughout). Normal users and Managers
+   have no path to upload/change/remove this photo. Stored in cloud storage;
+   the database only holds the resulting URL. ---- */
+function renderDevPhotoAdmin(){
+  const preview = Store.devPhoto
+    ? `<img class="dev-photo-admin-preview" src="${esc(Store.devPhoto)}" alt="Developer photo" />`
+    : `<div class="dev-photo-admin-preview">🧑‍💻</div>`;
+  return `
+    <div class="dash-card">
+      <h4>Developer profile photo</h4>
+      <p class="api-key-note">Shown at the top of the "About the Developer" popup for every visitor. Only the Developer account can upload, change, or remove it.</p>
+      <div class="dev-photo-admin-row">
+        ${preview}
+        <div class="dev-photo-admin-actions">
+          <button class="submit-btn" data-act="trigger-dev-photo">📷 ${Store.devPhoto ? 'Change Photo' : 'Upload Photo'}</button>
+          ${Store.devPhoto ? '<button class="row-remove" data-act="dev-photo-remove">Remove Photo</button>' : ''}
+        </div>
+      </div>
+      <div class="form-error" id="devPhotoError"></div>
+    </div>`;
+}
+async function handleDevPhotoFile(file){
+  const errEl = document.getElementById('devPhotoError');
+  if(!file) return;
+  if(!/^image\//.test(file.type)){ if(errEl) errEl.textContent = 'Please choose an image file.'; return; }
+  try{
+    const uploaded = await api.upload('/api/uploads/dev-photo', file);
+    const res = await api.patch('/api/admin/dev-photo', { photoUrl: uploaded.url });
+    Store.devPhoto = res.photoUrl || '';
+    if(errEl) errEl.textContent = '';
+    showToast('Developer photo updated.');
+    renderDashboard();
+  }catch(e){
+    if(errEl) errEl.textContent = errMsg(e);
+  }
+}
+async function removeDevPhoto(){
+  try{
+    const res = await api.patch('/api/admin/dev-photo', { photoUrl: null });
+    Store.devPhoto = res.photoUrl || '';
+    showToast('Developer photo removed.');
+    renderDashboard();
+  }catch(e){
+    showToast('Could not remove photo — ' + errMsg(e));
+  }
+}
+/* ---- populates the view-only About Developer modal's photo slot; falls back
+   to a clean default avatar when the Developer hasn't uploaded one. ---- */
+function renderAboutDevPhoto(){
+  const wrap = document.getElementById('aboutDevPhotoWrap');
+  if(!wrap) return;
+  wrap.innerHTML = Store.devPhoto
+    ? `<img src="${esc(Store.devPhoto)}" alt="Developer photo" />`
+    : `<div class="dev-photo-default">🧑‍💻</div>`;
+}
+function renderListAdmin(kind){
+  const store = collectionArrayFor(kind);
+  const round = kind !== 'playlist';
+  const noun = kind==='category' ? 'Category' : kind==='artist' ? 'Artist' : 'Playlist';
+  const listId = kind + (kind==='category'?'ies':'s'); // categories | artists | playlists
+  const rows = store.map(item=>{
+    const checked = getSel(listId).has(item.id);
+    return `
+    <div class="admin-row" data-act="admin-open-${kind}" data-id="${item.id}">
+      <input type="checkbox" class="sel-check" data-act="sel-toggle" data-listid="${listId}" data-key="${item.id}" ${checked?'checked':''} />
+      <img class="admin-thumb ${round?'round':''}" src="${esc(item.img)}" />
+      <div class="info"><div class="t">${esc(item.name)}</div><div class="a">${(item.songs||[]).length} song(s)</div></div>
+      <button class="row-remove" data-act="admin-remove-${kind}" data-id="${item.id}">Remove</button>
+    </div>`;
+  }).join('');
+  return `
+    <div class="dash-card">
+      <h4>Add ${noun.toLowerCase()}</h4>
+      <div class="admin-form-row">
+        <div class="field"><label>Name</label><input id="${kind}Name" type="text" placeholder="${noun} name" /></div>
+        <div class="field"><label>Photo URL</label><input id="${kind}Img" type="text" placeholder="https://..." /></div>
+      </div>
+      <div class="avatar-upload">
+        <div class="avatar-preview" id="${kind}ImgPreview">📷</div>
+        <div><label class="file-btn" for="${kind}ImgFile">Upload photo</label><input type="file" id="${kind}ImgFile" accept="image/*" style="display:none;" data-filetarget="${kind}Img" /><div><small>Optional — overrides the URL above if uploaded</small></div></div>
+      </div>
+      <div class="form-error" id="${kind}Error"></div>
+      <button class="submit-btn" data-act="admin-add-${kind}">Add ${noun}</button>
+    </div>
+    <div class="dash-card">
+      <h4>${noun}s — tap to manage songs</h4>
+      ${store.length ? renderSelectBar(listId, store.map(x=>x.id)) : ''}
+      <div class="admin-list">${rows || `<div class="empty-note">No ${noun.toLowerCase()}s yet.</div>`}</div>
+    </div>`;
+}
+function renderDashSubEditor(){
+  const { kind, id } = dashSubEdit;
+  const item = collectionArrayFor(kind).find(x=>x.id===id);
+  if(!item){ dashSubEdit = null; return renderListAdmin(kind); }
+  const listId = `subsongs:${kind}:${id}`;
+  const songs = item.songs || [];
+  const rows = songs.map(s=>{
+    const key = songKey(s);
+    const checked = getSel(listId).has(key);
+    return `
+    <div class="admin-row">
+      <input type="checkbox" class="sel-check" data-act="sel-toggle" data-listid="${listId}" data-key="${esc(key)}" ${checked?'checked':''} />
+      <img class="admin-thumb" src="${esc(s.img)}" />
+      <div class="info"><div class="t">${esc(s.title)}</div><div class="a">${esc(s.artist)}</div></div>
+      <button class="row-remove" data-act="admin-sub-remove-song" data-key="${esc(key)}">Remove</button>
+    </div>`;
+  }).join('');
+  return `
+    <button class="back-btn" data-act="admin-sub-back">← Back to ${kind}s</button>
+    <div class="dash-card">
+      <h4>${esc(item.name)} — add a song</h4>
+      <p class="api-key-note">Search YouTube and tap a result to add it instantly.</p>
+      <button class="submit-btn" data-act="open-yt-search-subsong">🔍 Search YouTube</button>
+    </div>
+    <div class="dash-card">
+      <h4>Bulk add (Admin only)</h4>
+      <p class="api-key-note">Paste song or singer names — comma or newline separated, even thousands of them. Each name is matched to its top YouTube result and queued in one at a time with a short pacing delay, so the browser never locks up and the API isn't hammered.</p>
+      <div class="field"><textarea id="bulkNames" rows="5" placeholder="e.g. Blinding Lights, Levitating&#10;Bohemian Rhapsody&#10;Adele - Someone Like You"></textarea></div>
+      <div class="form-error" id="bulkError"></div>
+      <div class="bulk-progress" id="bulkProgress"></div>
+      <button class="submit-btn" id="bulkRunBtn" data-act="bulk-add-run">Run Bulk Add</button>
+    </div>
+    <div class="dash-card">
+      <h4>Songs in ${esc(item.name)} (${songs.length})</h4>
+      ${songs.length ? renderSelectBar(listId, songs.map(songKey)) : ''}
+      <div class="admin-list">${rows || '<div class="empty-note">No songs yet.</div>'}</div>
+    </div>`;
+}
+function renderFeedbackAdmin(){
+  if(dashLoading.feedback && !Store.feedback.length) return `<div class="dash-card"><div class="empty-note">Loading feedback…</div></div>`;
+  if(!Store.feedback.length) return `<div class="dash-card"><div class="empty-note">No feedback submitted yet.</div></div>`;
+  const rows = Store.feedback.map(f=>`
+    <tr>
+      <td>${esc(f.name)}</td><td>${esc(f.email||'—')}</td><td>${esc(f.message)}</td>
+      <td><span class="role-badge">${esc((f.status||'OPEN').toLowerCase())}</span></td>
+      <td>${new Date(f.createdAt).toLocaleString()}</td>
+      <td style="white-space:nowrap;">
+        ${f.status!=='RESOLVED' ? `<button class="row-remove" data-act="feedback-resolve" data-id="${f.id}">Resolve</button>` : ''}
+        <button class="row-remove" data-act="feedback-delete" data-id="${f.id}">Delete</button>
+      </td>
+    </tr>`).join('');
+  return `<div class="dash-card"><h4>All Feedback</h4><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Message</th><th>Status</th><th>When</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+async function resolveFeedback(id){
+  try{
+    const res = await api.patch('/api/admin/feedback/' + id, { status: 'RESOLVED' });
+    const idx = Store.feedback.findIndex(f=>f.id===id);
+    if(idx !== -1) Store.feedback[idx] = res.item;
+    renderDashboard();
+  }catch(e){ showToast('Could not update feedback — ' + errMsg(e)); }
+}
+function deleteFeedback(id){
+  openConfirmModal(async ()=>{
+    try{
+      await api.del('/api/admin/feedback/' + id);
+      Store.feedback = Store.feedback.filter(f=>f.id!==id);
+      renderDashboard();
+    }catch(e){ showToast('Could not delete feedback — ' + errMsg(e)); }
+  });
+}
+function renderUsersAdmin(){
+  if(dashLoading.users && !Store.users.length) return `<div class="dash-card"><div class="empty-note">Loading users…</div></div>`;
+  const totalLogins = Store.loginTotal || Store.loginlog.length;
+  const liveWindow = nowTs() - 15*60*1000;
+  const liveCount = new Set(Store.loginlog.filter(l=> l.ts >= liveWindow).map(l=> l.who)).size;
+  const stat = `
+    <div class="stat-grid">
+      <div class="stat-card"><div class="num">${Store.users.length}</div><div class="lbl">Registered Users</div></div>
+      <div class="stat-card clickable" data-act="toggle-login-log" title="Click to view login activity"><div class="num">${totalLogins}</div><div class="lbl">Total Logins ${showLoginLog ? '▲' : '▼'}</div></div>
+      <div class="stat-card" id="liveUsersCard"><div class="num">${liveCount}</div><div class="lbl">Live Users (last 15m)</div></div>
+    </div>`;
+  const loginLogSection = showLoginLog ? renderLoginLogTable() : '';
+  if(!Store.users.length) return stat + loginLogSection + `<div class="dash-card"><div class="empty-note">No registered users yet.</div></div>`;
+  const rows = Store.users.map(u=>{
+    const logins = Store.loginlog.filter(l=> l.who && l.who.toLowerCase() === u.email.toLowerCase()).length;
+    return `<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${esc(u.mobile||'—')}</td><td>${new Date(u.createdAt).toLocaleDateString()}</td><td>${logins}</td></tr>`;
+  }).join('');
+  return stat + loginLogSection + `<div class="dash-card"><h4>Registered Users</h4><table class="data-table"><thead><tr><th>Name</th><th>Email</th><th>Mobile</th><th>Joined</th><th>Logins (recent)</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderLoginLogTable(){
+  if(dashLoading.users && !Store.loginlog.length) return `<div class="dash-card"><h4>Login Activity Log</h4><div class="empty-note">Loading…</div></div>`;
+  if(!Store.loginlog.length) return `<div class="dash-card"><h4>Login Activity Log</h4><div class="empty-note">No login activity yet.</div></div>`;
+  const rows = [...Store.loginlog].sort((a,b)=> b.ts - a.ts).map(l=>
+    `<tr><td>${esc(l.who||'—')}</td><td><span class="role-badge ${l.role==='developer'?'dev':l.role==='manager'?'mgr':''}">${esc(l.role||'user')}</span></td><td>${new Date(l.ts).toLocaleString()}</td></tr>`
+  ).join('');
+  return `<div class="dash-card"><h4>Login Activity Log (most recent 100)</h4><table class="data-table"><thead><tr><th>User</th><th>Role</th><th>When</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+function renderManagersAdmin(){
+  if(dashLoading.managers && !Store.managers.length) return `<div class="dash-card"><div class="empty-note">Loading managers…</div></div>`;
+  const rows = Store.managers.map(m=>`
+    <div class="admin-row">
+      <div class="info"><div class="t">${esc(m.name)} <span class="role-badge mgr">Manager</span></div><div class="a">${esc(m.email)} · ${esc(m.mobile||'—')}</div></div>
+      <button class="row-remove" data-act="manager-remove" data-id="${m.id}">Remove</button>
+    </div>`).join('');
+  return `
+    <div class="dash-card">
+      <h4>Add a manager</h4>
+      <div class="admin-form-row">
+        <div class="field"><label>Name</label><input id="mgrName" type="text" placeholder="Manager's name" /></div>
+        <div class="field"><label>Email</label><input id="mgrEmail" type="email" placeholder="manager@example.com" /></div>
+        <div class="field"><label>Mobile</label><input id="mgrMobile" type="text" placeholder="Mobile number (optional)" /></div>
+        <div class="field"><label>Password</label><input id="mgrPassword" type="password" placeholder="At least 8 characters, with a letter and a number" /></div>
+      </div>
+      <div class="form-error" id="mgrError"></div>
+      <button class="submit-btn" data-act="manager-add">Add Manager</button>
+    </div>
+    <div class="dash-card"><h4>Managers</h4><div class="admin-list">${rows || '<div class="empty-note">No managers yet.</div>'}</div></div>`;
+}
+
+/* ---- dashboard action implementations (all server-backed now) ---- */
+async function saveBrandName(){
+  const val = document.getElementById('brandInput').value.trim();
+  const err = document.getElementById('brandError');
+  if(!val){ err.textContent = 'Brand name cannot be empty.'; return; }
+  err.textContent = '';
+  try{
+    const res = await api.patch('/api/admin/brand', { brand: val });
+    Store.brand = res.brand; renderBrand();
+  }catch(e){ err.textContent = errMsg(e); }
+}
+async function addCategory(){
+  const name = document.getElementById('categoryName').value.trim();
+  const img = document.getElementById('categoryImg').value.trim();
+  const err = document.getElementById('categoryError');
+  if(!name || !img){ err.textContent = 'Name and photo URL are required.'; return; }
+  err.textContent = '';
+  try{
+    const res = await api.post('/api/categories', { name, img });
+    Store.categories.push(res.item);
+    renderCategoryCircles(); renderCategoryPills(); renderDashboard();
+  }catch(e){ err.textContent = errMsg(e); }
+}
+async function addArtist(){
+  const name = document.getElementById('artistName').value.trim();
+  const img = document.getElementById('artistImg').value.trim();
+  const err = document.getElementById('artistError');
+  if(!name || !img){ err.textContent = 'Name and photo URL are required.'; return; }
+  err.textContent = '';
+  try{
+    const res = await api.post('/api/artists', { name, img });
+    Store.artists.push(res.item);
+    renderArtists(); renderDashboard();
+  }catch(e){ err.textContent = errMsg(e); }
+}
+async function addPlaylist(){
+  const name = document.getElementById('playlistName').value.trim();
+  let img = document.getElementById('playlistImg').value.trim();
+  const err = document.getElementById('playlistError');
+  if(!name){ err.textContent = 'Playlist name is required.'; return; }
+  if(!img) img = `https://picsum.photos/seed/${Date.now()}/400/400`;
+  err.textContent = '';
+  try{
+    const res = await api.post('/api/playlists', { name, img });
+    Store.playlists.push(res.item);
+    renderPlaylists(); renderDashboard();
+  }catch(e){ err.textContent = errMsg(e); }
+}
+async function removeCollectionItem(kind, id){
+  try{
+    await api.del(`/api/${collectionPathFor(kind)}/${id}`);
+    const arr = collectionArrayFor(kind);
+    const filtered = arr.filter(x=> x.id !== id);
+    if(kind==='category'){ Store.categories = filtered; renderCategoryCircles(); renderCategoryPills(); }
+    else if(kind==='artist'){ Store.artists = filtered; renderArtists(); }
+    else { Store.playlists = filtered; renderPlaylists(); }
+    const listId = kind + (kind==='category'?'ies':'s');
+    getSel(listId).delete(id);
+    renderDashboard();
+  }catch(e){ showToast('Could not remove — ' + errMsg(e)); }
+}
+async function removeHeroItem(id){
+  try{
+    await api.del('/api/hero/' + id);
+    Store.hero = Store.hero.filter(h=> h.id !== id);
+    getSel('hero').delete(id);
+    renderHero(); renderDashboard();
+  }catch(e){ showToast('Could not remove — ' + errMsg(e)); }
+}
+async function removeSongFromSub(key){
+  const { kind, id } = dashSubEdit;
+  const item = collectionArrayFor(kind).find(x=>x.id===id); if(!item) return;
+  const song = (item.songs||[]).find(s=> songKey(s) === key);
+  if(!song || !song.id) return;
+  try{
+    await api.del(`/api/${collectionPathFor(kind)}/${id}/songs/${song.id}`);
+    item.songs = (item.songs||[]).filter(s=> songKey(s) !== key);
+    renderDashboard();
+  }catch(e){ showToast('Could not remove song — ' + errMsg(e)); }
+}
+async function addManager(){
+  if(!isDeveloper()) return;
+  const name = document.getElementById('mgrName').value.trim();
+  const email = document.getElementById('mgrEmail').value.trim();
+  const mobile = document.getElementById('mgrMobile').value.trim();
+  const password = document.getElementById('mgrPassword').value;
+  const err = document.getElementById('mgrError');
+  if(!email || !password){ err.textContent = 'Email and password are required.'; return; }
+  err.textContent = '';
+  try{
+    const res = await api.post('/api/managers', { name: name || email.split('@')[0], email, mobile: mobile || undefined, password });
+    Store.managers.push(res.item);
+    renderDashboard();
+  }catch(e){ err.textContent = errMsg(e); }
+}
+async function removeManager(id){
+  if(!isDeveloper()) return;
+  try{
+    await api.del('/api/managers/' + id);
+    Store.managers = Store.managers.filter(m=>m.id!==id);
+    renderDashboard();
+  }catch(e){ showToast('Could not remove manager — ' + errMsg(e)); }
+}
+
+
+/* =========================================================
+   35. DRAWER (mobile)
+   ========================================================= */
+const drawer = document.getElementById('drawer');
+const drawerBackdrop = document.getElementById('drawerBackdrop');
+document.getElementById('hamburgerBtn').addEventListener('click', ()=>{ drawer.classList.add('open'); drawerBackdrop.classList.add('open'); });
+drawerBackdrop.addEventListener('click', closeDrawer);
+function closeDrawer(){ drawer.classList.remove('open'); drawerBackdrop.classList.remove('open'); }
+
+
+/* =========================================================
+   36. INIT
+   The app now boots by fetching shared catalog data and (if a
+   session cookie is present) the user's own data from the API,
+   instead of reading everything synchronously from localStorage.
+   ========================================================= */
+async function init(){
+  renderBrand();
+  renderHero(); startHeroAutoplay();
+  renderCategoryPills(); renderCategoryCircles();
+  renderSongs(); renderArtists(); renderPlaylists();
+  renderNav();
+  showView('home');
+  updateLikeUI();
+  refreshProfilePop();
+  updateMuteIcon();
+  setInterval(()=>{
+    if(currentView === 'dashboard' && dashTab === 'users' && isAdmin() && !dashSubEdit) ensureDashboardData('users');
+  }, 8000);
+}
+
+async function bootstrap(){
+  const hideLoading = typeof showLoadingToast === 'function' ? showLoadingToast('Loading Dev Music Hub…') : ()=>{};
+  try{
+    await loadAppData();
+  }catch(e){
+    showToast('Could not load the catalog — please refresh to try again.');
+  }
+  try{
+    await restoreSession();
+  }catch(e){
+    session = null;
+  }
+  hideLoading();
+  await init();
+  if(isLoggedIn()){
+    refreshProfilePop();
+    renderNav();
+    refreshAllSongViews();
+    if(isAdmin() && currentView === 'dashboard') renderDashboard();
+  }
+}
+bootstrap();
+</script>
+</body>
+</html>

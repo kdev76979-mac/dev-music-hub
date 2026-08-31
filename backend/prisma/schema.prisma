@@ -1,0 +1,248 @@
+// Dev Music Hub — Production database schema
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AdminRole {
+  MANAGER
+  DEVELOPER
+}
+
+enum FeedbackStatus {
+  OPEN
+  REVIEWED
+  RESOLVED
+}
+
+enum HeroMediaType {
+  YOUTUBE
+  PHOTO
+  VIDEO
+}
+
+/// Regular end users (role = user everywhere in the app).
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  mobile       String   @unique
+  passwordHash String
+  avatarUrl    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  likes     Like[]
+  history   ListeningHistory[]
+  myMusic   MyMusic[]
+  feedback  Feedback[]
+  loginLogs LoginLog[]
+
+  @@index([email])
+  @@index([mobile])
+}
+
+/// Managers and the single Developer/admin account.
+/// The first Developer account is created by the seed script from env vars —
+/// never hardcoded in source, never sent to the frontend as plaintext.
+model AdminAccount {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  mobile       String?   @unique
+  passwordHash String
+  role         AdminRole @default(MANAGER)
+  photoUrl     String? // developer profile photo (cloud storage URL)
+  photoPublicId String? // cloud storage public id, so the old photo can be deleted on replace
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  createdById  String? // which developer created this manager
+
+  loginLogs LoginLog[]
+
+  @@index([email])
+  @@index([role])
+}
+
+/// A song is uniquely identified by its YouTube video ID when it has one,
+/// which is what prevents duplicate songs (requirement: duplicate prevention).
+model Song {
+  id             String   @id @default(cuid())
+  title          String
+  artist         String
+  img            String?
+  youtubeVideoId String?  @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  categories CategorySong[]
+  artists    ArtistSong[]
+  playlists  PlaylistSong[]
+  likes      Like[]
+  history    ListeningHistory[]
+  myMusic    MyMusic[]
+
+  @@index([title])
+  @@index([artist])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  img       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  songs CategorySong[]
+}
+
+model CategorySong {
+  categoryId String
+  songId     String
+  addedAt    DateTime @default(now())
+
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([categoryId, songId])
+  @@index([songId])
+}
+
+model Artist {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  img       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  songs ArtistSong[]
+}
+
+model ArtistSong {
+  artistId String
+  songId   String
+  addedAt  DateTime @default(now())
+
+  artist Artist @relation(fields: [artistId], references: [id], onDelete: Cascade)
+  song   Song   @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([artistId, songId])
+  @@index([songId])
+}
+
+model Playlist {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  img       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  songs PlaylistSong[]
+}
+
+model PlaylistSong {
+  playlistId String
+  songId     String
+  addedAt    DateTime @default(now())
+
+  playlist Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  song     Song     @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@id([playlistId, songId])
+  @@index([songId])
+}
+
+model HeroItem {
+  id             String        @id @default(cuid())
+  title          String?
+  artist         String?
+  caption        String?
+  img            String
+  mediaType      HeroMediaType @default(YOUTUBE)
+  youtubeVideoId String?
+  mediaUrl       String? // cloud storage URL for uploaded photo/video
+  mediaPublicId  String? // cloud storage public id, so old files can be deleted on replace
+  createdAt      DateTime      @default(now())
+}
+
+model Like {
+  id      String   @id @default(cuid())
+  userId  String
+  songId  String
+  likedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, songId])
+  @@index([songId])
+}
+
+model ListeningHistory {
+  id       String   @id @default(cuid())
+  userId   String
+  songId   String
+  playedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@index([userId, playedAt])
+}
+
+model MyMusic {
+  id      String   @id @default(cuid())
+  userId  String
+  songId  String
+  addedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  song Song @relation(fields: [songId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, songId])
+  @@index([songId])
+}
+
+model Feedback {
+  id        String         @id @default(cuid())
+  name      String
+  email     String?
+  message   String
+  status    FeedbackStatus @default(OPEN)
+  userId    String?
+  createdAt DateTime       @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LoginLog {
+  id        String   @id @default(cuid())
+  who       String // email/mobile used to identify the account
+  role      String // 'user' | 'manager' | 'developer'
+  success   Boolean  @default(true)
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  userId  String?
+  adminId String?
+  user    User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  admin   AdminAccount? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+/// Single-row table for app-wide settings (brand name, etc).
+model AppSetting {
+  id    String @id @default("singleton")
+  brand String @default("DEV MUSIC HUB")
+}
