@@ -468,6 +468,109 @@
   @keyframes toastIn{ from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform: translateY(0); } }
   @keyframes toastOut{ to{ opacity:0; transform: translateY(6px); } }
   @media (max-width:880px){ .toast-wrap{ bottom: 140px; } }
+
+@media (max-width: 880px){
+  .main{ padding-bottom: 210px !important; }
+  .player{
+    display:flex !important; flex-wrap:wrap !important; align-items:center !important; gap:6px 14px !important;
+    position:fixed !important; left:10px !important; right:10px !important; bottom:76px !important; width:auto !important; height:auto !important;
+    padding:12px 16px 10px !important; border-radius:18px !important;
+    background: rgba(18,18,26,.94) !important; -webkit-backdrop-filter: blur(18px) !important; backdrop-filter: blur(18px) !important;
+    box-shadow: 0 12px 34px rgba(0,0,0,.5) !important; border:1px solid var(--border) !important;
+  }
+  .player-track{ order:1 !important; flex:1 1 auto !important; min-width:0 !important; }
+  .player-track img{ width:52px !important; height:52px !important; }
+  .player-track .meta .a{ display:block !important; }
+  .player-center{ order:2 !important; display:contents !important; }
+  .player-center .controls{ order:2 !important; gap:14px !important; flex-shrink:0 !important; }
+  .player-center .controls button{ font-size:1.1rem !important; }
+  .player-center .controls .play-pause{ width:40px !important; height:40px !important; }
+  .player-center .seek-row{ display:flex !important; order:3 !important; flex:1 1 100% !important; max-width:none !important; margin-top:2px !important; }
+  .player-right{ display:none !important; }
+  .toast-wrap{ bottom: 200px !important; }
+}
+/* ============ MINI PLAYER — GLASSMORPHISM REDESIGN ============ */
+.player{
+  left: 16px; right: 16px; bottom: 16px; width: auto;
+  border-radius: 22px;
+  background: rgba(22,22,30,.72);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  backdrop-filter: blur(22px) saturate(160%);
+  border: 1px solid rgba(255,255,255,.09);
+  box-shadow: 0 18px 46px rgba(0,0,0,.45);
+  cursor: pointer;
+  transition: transform .2s ease;
+}
+.player:active{ transform: scale(.995); }
+@media (max-width: 880px){
+  .player{ left:10px !important; right:10px !important; bottom:76px !important; }
+}
+
+/* ============ FULL-SCREEN "NOW PLAYING" PLAYER ============ */
+.full-player{
+  position: fixed; inset: 0; z-index: 500;
+  display: flex; align-items:center; justify-content:center;
+  background: #0b0b10;
+  opacity: 0; visibility: hidden; transform: translateY(24px);
+  transition: opacity .32s ease, transform .32s ease, visibility 0s linear .32s;
+}
+.full-player.open{
+  opacity: 1; visibility: visible; transform: translateY(0);
+  transition: opacity .32s ease, transform .32s ease, visibility 0s linear 0s;
+}
+.fp-bg{
+  position:absolute; inset:0; background-size:cover; background-position:center;
+  filter: blur(60px) brightness(.45) saturate(140%); transform: scale(1.2);
+  transition: background-image .4s ease;
+}
+.fp-inner{
+  position:relative; z-index:2; width:100%; max-width:420px; padding: 26px 28px 34px;
+  display:flex; flex-direction:column; align-items:center; color:#fff; max-height:94vh; overflow:hidden;
+}
+.fp-top{ width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+.fp-close{ font-size:1.3rem; padding:8px; color:#fff; opacity:.85; }
+.fp-close:hover{ opacity:1; }
+.fp-top-label{ font-size:.72rem; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,.55); font-weight:700; }
+.fp-art-wrap{ width:min(78vw, 320px); aspect-ratio:1/1; border-radius:20px; overflow:hidden; box-shadow: 0 30px 60px rgba(0,0,0,.55); margin-bottom:30px; transition: transform .35s ease, opacity .35s ease; }
+.fp-art-wrap.fade{ transform: scale(.94); opacity:0; }
+.fp-art-wrap img{ width:100%; height:100%; object-fit:cover; }
+.fp-meta{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:22px; }
+.fp-meta .fp-t{ font-size:1.3rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fp-meta .fp-a{ font-size:.9rem; color:rgba(255,255,255,.6); margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fp-like{ font-size:1.4rem; flex-shrink:0; transition: transform .15s ease; }
+.fp-like:active{ transform: scale(1.3); }
+.fp-seek-row{ width:100%; margin-bottom:8px; }
+.fp-seek-bar{ height:5px; background: rgba(255,255,255,.18); border-radius:6px; position:relative; cursor:pointer; }
+.fp-seek-fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background: var(--accent-grad); border-radius:6px; transition: width .3s linear; }
+.fp-times{ width:100%; display:flex; justify-content:space-between; font-size:.75rem; color:rgba(255,255,255,.55); margin-bottom:26px; }
+.fp-controls{ display:flex; align-items:center; justify-content:center; gap:26px; width:100%; }
+.fp-controls button{ color:#fff; font-size:1.25rem; transition: transform .15s ease, color .15s ease; }
+.fp-controls button:hover{ transform: scale(1.08); }
+.fp-controls button.active{ color: var(--accent-a); }
+.fp-play-pause{ width:70px; height:70px; border-radius:50%; background: var(--accent-grad); display:flex; align-items:center; justify-content:center; font-size:1.6rem; box-shadow: 0 12px 30px rgba(139,92,246,.4); }
+/* ============ IMAGE FIELD: PREVIEW + REMOVE BUTTON ============ */
+.img-field-preview{ position:relative; }
+.img-field-remove{ position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:var(--danger); color:#fff; font-size:.75rem; display:none; align-items:center; justify-content:center; z-index:2; box-shadow:0 2px 8px rgba(0,0,0,.4); }
+.img-field-preview.has-img .img-field-remove{ display:flex; }
+.img-field-note{ font-size:.7rem; color:var(--muted); margin-top:5px; }
+.img-field-note.error{ color:var(--danger); }
+
+/* ============ EXTRA RESPONSIVE FIXES ============ */
+.main{ max-width:1400px; margin:0 auto; }
+@media (min-width:560px){ .admin-form-row{ grid-template-columns: repeat(auto-fit, minmax(160px,1fr)); } }
+@media (max-width:560px){ .admin-form-row{ grid-template-columns: 1fr; } }
+.data-table-wrap{ width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+@media (max-width:600px){
+  .hero{ height:180px; }
+  .circle-grid{ grid-template-columns: repeat(auto-fill, minmax(90px,1fr)); gap:14px; }
+  .circle-photo{ width:78px; height:78px; }
+  .playlist-grid{ grid-template-columns: repeat(auto-fill, minmax(140px,1fr)); gap:12px; }
+  .stat-grid{ grid-template-columns: repeat(2, 1fr); }
+  .dash-tabs{ overflow-x:auto; flex-wrap:nowrap !important; -webkit-overflow-scrolling:touch; }
+  .dash-tab{ flex-shrink:0; white-space:nowrap; }
+  .modal{ padding:18px; width:calc(100vw - 24px); }
+  .song-line{ width: 220px; }
+}
 </style>
 </head>
 <body>
@@ -610,6 +713,31 @@
   </div>
 </div>
 
+<!-- ============ FULL-SCREEN NOW PLAYING PLAYER ============ -->
+<div class="full-player" id="fullPlayer">
+  <div class="fp-bg" id="fpBg"></div>
+  <div class="fp-inner">
+    <div class="fp-top">
+      <button class="fp-close" id="fpCloseBtn" title="Close">⌄</button>
+      <span class="fp-top-label">Now Playing</span>
+      <span style="width:36px;"></span>
+    </div>
+    <div class="fp-art-wrap" id="fpArtWrap"><img id="fpThumb" src="" alt="cover" /></div>
+    <div class="fp-meta">
+      <div style="min-width:0;"><div class="fp-t" id="fpTitle">—</div><div class="fp-a" id="fpArtist">—</div></div>
+      <button class="fp-like" id="fpLikeBtn">🤍</button>
+    </div>
+    <div class="fp-seek-row"><div class="fp-seek-bar" id="fpSeekBar"><div class="fp-seek-fill" id="fpSeekFill"></div></div></div>
+    <div class="fp-times"><span id="fpCurTime">0:00</span><span id="fpDurTime">0:30</span></div>
+    <div class="fp-controls">
+      <button id="fpShuffleBtn" title="Shuffle">🔀</button>
+      <button id="fpPrevBtn" title="Previous">⏮</button>
+      <button class="fp-play-pause" id="fpPlayPauseBtn" title="Play/Pause">▶</button>
+      <button id="fpNextBtn" title="Next">⏭</button>
+      <button id="fpRepeatBtn" title="Repeat">🔁</button>
+    </div>
+  </div>
+</div>
 <nav class="bottom-nav" id="bottomNav"></nav>
 
 <!-- ============ HIDDEN YOUTUBE IFRAME AUDIO ENGINE ============ -->
@@ -638,10 +766,10 @@
   <div class="modal">
     <div class="modal-head"><h3>Edit Profile</h3><button class="modal-close" data-close="profileEditModal">✕</button></div>
     <div class="avatar-upload">
-      <div class="avatar-preview" id="peAvatarPreview">📷</div>
+      <div class="avatar-preview img-field-preview" id="peAvatarPreview">📷</div>
       <div><label class="file-btn" for="peAvatarInput">Upload photo</label><input type="file" id="peAvatarInput" accept="image/*" style="display:none;" /></div>
     </div>
-    <div class="field"><label>Or Profile Photo URL</label><input type="text" id="peAvatarUrlInput" placeholder="https://..." /></div>
+    <div class="field"><label>Or Profile Photo URL</label><input type="text" id="peAvatarUrlInput" placeholder="https://..." data-urlpreview="peAvatarInput" /></div>
     <div class="field"><label>Name</label><input type="text" id="peName" /></div>
     <div class="field"><label>Email</label><input type="email" id="peEmail" /></div>
     <div class="form-error" id="peError"></div>
@@ -712,11 +840,10 @@
       </div>
       <div id="registerOnlyFields">
         <div class="avatar-upload">
-          <div class="avatar-preview" id="avatarPreview">📷</div>
+          <div class="avatar-preview img-field-preview" id="avatarPreview">📷</div>
           <div><label class="file-btn" for="avatarInput">Upload photo</label><input type="file" id="avatarInput" accept="image/*" style="display:none;" /></div>
         </div>
-        <div class="field"><label>Or Profile Photo URL</label><input type="text" id="avatarUrlInput" placeholder="https://..." /></div>
-        <div class="field"><label>Name *</label><input type="text" id="loginName" placeholder="Your full name" /></div>
+        <div class="field"><label>Or Profile Photo URL</label><input type="text" id="avatarUrlInput" placeholder="https://..." data-urlpreview="avatarInput" /></div>        <div class="field"><label>Name *</label><input type="text" id="loginName" placeholder="Your full name" /></div>
         <div class="field"><label>Mobile Number *</label><input type="tel" id="loginMobile" placeholder="Your mobile number" /></div>
       </div>
       <div class="field"><label>Email or Mobile *</label><input type="text" id="loginEmail" placeholder="you@example.com" /></div>
@@ -2007,26 +2134,95 @@ function onYtPlayerStateChange(e){
 }
 loadYouTubeIframeAPI();
 
-/* ---- generic dual image upload: any <input type=file data-filetarget="fieldId">
-   now uploads the chosen photo to cloud storage and writes the resulting HTTPS
-   URL into that text field, so existing "Image URL" handlers pick it up
-   unchanged. Used for category/artist/playlist covers (song covers always
-   come from the YouTube thumbnail instead). ---- */
+/* ---- helper: compress large images client-side before upload ---- */
+function compressImageFile(file, maxDim, quality){
+  return new Promise((resolve)=>{
+    if(!file.type.startsWith('image/') || file.type === 'image/gif'){ resolve(file); return; }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      if(width <= maxDim && height <= maxDim && file.size < 1.5*1024*1024){ resolve(file); return; }
+      const scale = Math.min(1, maxDim / Math.max(width, height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(width*scale); canvas.height = Math.round(height*scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob)=>{
+        if(!blob){ resolve(file); return; }
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', quality || 0.85);
+    };
+    img.onerror = ()=> resolve(file);
+    img.src = url;
+  });
+}
+function setImgFieldPreview(targetId, url){
+  const wrap = document.getElementById(targetId + 'Preview');
+  if(!wrap) return;
+  wrap.classList.toggle('has-img', !!url);
+  wrap.innerHTML = url
+    ? `<img src="${esc(url)}" alt="preview" /><button type="button" class="img-field-remove" data-act="img-field-remove" data-targetid="${esc(targetId)}" title="Remove">✕</button>`
+    : '📷';
+}
 document.body.addEventListener('change', (e)=>{
   const el = e.target;
   if(!(el.matches && el.matches('input[type=file][data-filetarget]'))) return;
   const file = el.files[0]; if(!file) return;
   const targetId = el.dataset.filetarget;
   const hidden = document.getElementById(targetId);
-  const preview = document.getElementById(targetId + 'Preview');
-  if(preview) preview.innerHTML = `<span class="upload-spinner">Uploading…</span>`;
-  api.upload('/api/uploads/cover', file).then((uploaded)=>{
+  const okTypes = ['image/jpeg','image/jpg','image/png','image/webp'];
+  if(file.type && !okTypes.includes(file.type)){
+    showToast('Please choose a JPG, PNG, or WEBP image.');
+    el.value = ''; return;
+  }
+  if(file.size > 20*1024*1024){
+    showToast('That image is too large (max 20MB).');
+    el.value = ''; return;
+  }
+  const wrap = document.getElementById(targetId + 'Preview');
+  if(wrap){ wrap.classList.remove('has-img'); wrap.innerHTML = `<span class="upload-spinner">Uploading…</span>`; }
+  compressImageFile(file, 1600, 0.85).then(compressed=>
+    api.upload('/api/uploads/cover', compressed)
+  ).then((uploaded)=>{
     if(hidden) hidden.value = uploaded.url;
-    if(preview) preview.innerHTML = `<img src="${esc(uploaded.url)}" alt="preview" />`;
+    setImgFieldPreview(targetId, uploaded.url);
   }).catch((err)=>{
-    if(preview) preview.innerHTML = '📷';
+    setImgFieldPreview(targetId, '');
     showToast('Upload failed — ' + errMsg(err));
   });
+  el.value = ''; // allow re-selecting the same file later
+});
+
+/* ---- remove button: clears both the uploaded image and the URL field ---- */
+document.body.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-act="img-field-remove"]');
+  if(!btn) return;
+  const targetId = btn.dataset.targetid;
+  const hidden = document.getElementById(targetId);
+  if(hidden) hidden.value = '';
+  setImgFieldPreview(targetId, '');
+});
+
+/* ---- Photo URL field: live preview + validation (works for any input
+   with data-urlpreview="<previewTargetId>") ---- */
+document.body.addEventListener('input', (e)=>{
+  const el = e.target;
+  if(!(el.matches && el.matches('input[data-urlpreview]'))) return;
+  const targetId = el.dataset.urlpreview;
+  const url = el.value.trim();
+  clearTimeout(el._urlCheckTimer);
+  if(!url){ setImgFieldPreview(targetId, ''); return; }
+  el._urlCheckTimer = setTimeout(()=>{
+    const testImg = new Image();
+    testImg.onload = ()=> setImgFieldPreview(targetId, url);
+    testImg.onerror = ()=>{
+      setImgFieldPreview(targetId, '');
+      const wrap = document.getElementById(targetId + 'Preview');
+      if(wrap) wrap.innerHTML = '⚠️';
+    };
+    testImg.src = url;
+  }, 500);
 });
 
 /* ---- hero photo/video upload inputs (hidden, triggered via the
@@ -2662,11 +2858,11 @@ function renderListAdmin(kind){
       <h4>Add ${noun.toLowerCase()}</h4>
       <div class="admin-form-row">
         <div class="field"><label>Name</label><input id="${kind}Name" type="text" placeholder="${noun} name" /></div>
-        <div class="field"><label>Photo URL</label><input id="${kind}Img" type="text" placeholder="https://..." /></div>
+        <div class="field"><label>Photo URL</label><input id="${kind}Img" type="text" placeholder="https://..." data-urlpreview="${kind}Img" /></div>
       </div>
       <div class="avatar-upload">
-        <div class="avatar-preview" id="${kind}ImgPreview">📷</div>
-        <div><label class="file-btn" for="${kind}ImgFile">Upload photo</label><input type="file" id="${kind}ImgFile" accept="image/*" style="display:none;" data-filetarget="${kind}Img" /><div><small>Optional — overrides the URL above if uploaded</small></div></div>
+        <div class="avatar-preview img-field-preview" id="${kind}ImgPreview">📷</div>
+        <div><label class="file-btn" for="${kind}ImgFile">Upload photo</label><input type="file" id="${kind}ImgFile" accept="image/jpeg,image/png,image/webp,image/jpg" style="display:none;" data-filetarget="${kind}Img" /><div><small>Optional if a Photo URL is given below</small></div></div>
       </div>
       <div class="form-error" id="${kind}Error"></div>
       <button class="submit-btn" data-act="admin-add-${kind}">Add ${noun}</button>
@@ -2953,7 +3149,105 @@ async function bootstrap(){
     if(isAdmin() && currentView === 'dashboard') renderDashboard();
   }
 }
+/* =========================================================
+   38. GLOBAL BROKEN-IMAGE FALLBACK
+   Har jagah har <img> pe apply hota hai — song covers, avatars,
+   hero, category/artist/playlist photos — bina har jagah code
+   likhe. Agar Photo URL kaam na kare, ye apne aap placeholder
+   dikha dega.
+   ========================================================= */
+window.DMH_FALLBACK_IMG = 'https://placehold.co/400x400/1c1c26/8a8894?text=No+Image';
+document.addEventListener('error', function(e){
+  const t = e.target;
+  if(t.tagName === 'IMG' && !t.dataset.fallbackApplied){
+    t.dataset.fallbackApplied = '1';
+    t.src = window.DMH_FALLBACK_IMG;
+  }
+}, true);
 bootstrap();
+/* =========================================================
+   37. FULL-SCREEN "NOW PLAYING" PLAYER — wraps existing logic,
+   does not modify original player functions.
+   ========================================================= */
+const fullPlayer = document.getElementById('fullPlayer');
+const fpBg = document.getElementById('fpBg');
+const fpArtWrap = document.getElementById('fpArtWrap');
+const fpThumb = document.getElementById('fpThumb');
+const fpTitle = document.getElementById('fpTitle');
+const fpArtist = document.getElementById('fpArtist');
+const fpLikeBtn = document.getElementById('fpLikeBtn');
+const fpPlayPauseBtn = document.getElementById('fpPlayPauseBtn');
+const fpSeekBar = document.getElementById('fpSeekBar');
+const fpSeekFill = document.getElementById('fpSeekFill');
+const fpCurTime = document.getElementById('fpCurTime');
+const fpDurTime = document.getElementById('fpDurTime');
+const fpShuffleBtn = document.getElementById('fpShuffleBtn');
+const fpRepeatBtn = document.getElementById('fpRepeatBtn');
+
+function openFullPlayer(){
+  if(!currentSong) return;
+  syncFullPlayer();
+  fullPlayer.classList.add('open');
+}
+function closeFullPlayer(){ fullPlayer.classList.remove('open'); }
+document.getElementById('fpCloseBtn').addEventListener('click', closeFullPlayer);
+
+/* clicking mini player (but not its buttons) opens full player */
+document.querySelector('.player').addEventListener('click', (e)=>{
+  if(e.target.closest('button, input, .seek-bar')) return;
+  openFullPlayer();
+});
+
+function syncFullPlayer(){
+  if(!currentSong) return;
+  fpThumb.src = currentSong.img; fpBg.style.backgroundImage = `url('${currentSong.img}')`;
+  fpTitle.textContent = currentSong.title; fpArtist.textContent = currentSong.artist;
+  const liked = isLiked(currentSong);
+  fpLikeBtn.textContent = liked ? '❤️' : '🤍';
+  fpPlayPauseBtn.textContent = isPlaying ? '⏸' : '▶';
+  fpShuffleBtn.classList.toggle('active', isShuffle);
+  fpRepeatBtn.classList.toggle('active', repeatMode);
+  fpSeekFill.style.width = seekPercent + '%';
+  fpCurTime.textContent = curTimeEl.textContent;
+  fpDurTime.textContent = durTimeEl.textContent;
+}
+
+/* full-screen controls call the SAME functions as the mini player */
+fpPlayPauseBtn.addEventListener('click', ()=>{ if(currentSong) setPlaying(!isPlaying); });
+document.getElementById('fpNextBtn').addEventListener('click', playNext);
+document.getElementById('fpPrevBtn').addEventListener('click', playPrev);
+fpShuffleBtn.addEventListener('click', ()=>{ isShuffle = !isShuffle; shuffleBtn.classList.toggle('active', isShuffle); fpShuffleBtn.classList.toggle('active', isShuffle); });
+fpRepeatBtn.addEventListener('click', ()=>{ repeatMode = !repeatMode; repeatBtn.classList.toggle('active', repeatMode); fpRepeatBtn.classList.toggle('active', repeatMode); });
+fpLikeBtn.addEventListener('click', ()=>{ if(currentSong) toggleLike(currentSong); });
+fpSeekBar.addEventListener('click', (e)=>{
+  const rect = fpSeekBar.getBoundingClientRect();
+  const pct = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
+  seekPercent = pct;
+  if(isRealSong(currentSong) && ytPlayerReady && ytPlayer && ytPlayer.getDuration){
+    const dur = ytPlayer.getDuration() || 0;
+    if(dur > 0) ytPlayer.seekTo((pct/100) * dur, true);
+  }
+  updateSeekUI(); syncFullPlayer();
+});
+
+/* ---- patch existing functions (non-destructive) to also keep full player in sync ---- */
+const _activateSong = activateSong;
+activateSong = function(song){
+  if(fpArtWrap) fpArtWrap.classList.add('fade');
+  _activateSong(song);
+  syncFullPlayer();
+  setTimeout(()=>{ if(fpArtWrap) fpArtWrap.classList.remove('fade'); }, 60);
+};
+const _setPlaying = setPlaying;
+setPlaying = function(state){ _setPlaying(state); syncFullPlayer(); };
+const _updateSeekUI = updateSeekUI;
+updateSeekUI = function(){ _updateSeekUI(); syncFullPlayer(); };
+const _updateLikeUI = updateLikeUI;
+updateLikeUI = function(){ _updateLikeUI(); syncFullPlayer(); };
+
+/* seek timer for real YouTube songs updates curTime/durTime directly inside
+   startSeekTimer() every second — keep full player numbers matched too */
+setInterval(()=>{ if(fullPlayer.classList.contains('open')) syncFullPlayer(); }, 1000);
 </script>
 </body>
 </html>
