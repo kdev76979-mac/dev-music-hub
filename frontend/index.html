@@ -572,6 +572,50 @@
   .modal{ padding:18px; width:calc(100vw - 24px); }
   .song-line{ width: 220px; }
 }
+/* ============ RECOMMENDATION PANEL ============ */
+.reco-btn{ font-size:1rem; color:var(--muted); transition: color .15s ease; }
+.reco-btn:hover, .reco-btn.active{ color: var(--accent-a); }
+.main-wrap{ transition: margin-right .25s ease; }
+body.reco-open .main-wrap{ margin-right: 320px; }
+.reco-panel{
+  position:fixed; top:0; right:0; bottom:0; width:320px; background: var(--surface);
+  border-left:1px solid var(--border); z-index:70; display:flex; flex-direction:column;
+  transform: translateX(100%); transition: transform .28s ease; padding-top: var(--header-h);
+}
+.reco-panel.open{ transform: translateX(0); }
+.reco-head{ display:flex; align-items:center; justify-content:space-between; padding:18px 18px 10px; }
+.reco-head h3{ font-size:1rem; font-weight:800; }
+.reco-close{ font-size:1.1rem; color:var(--muted); padding:4px; }
+.reco-close:hover{ color:var(--text); }
+.reco-list{ flex:1; overflow-y:auto; padding: 6px 14px 16px; display:flex; flex-direction:column; gap:8px; }
+.reco-row{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:11px; cursor:pointer; transition: background .15s ease; }
+.reco-row:hover{ background: var(--surface-2); }
+.reco-row img{ width:46px; height:46px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+.reco-play-btn{ width:28px; height:28px; border-radius:50%; background: var(--surface-2); color:var(--muted); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.8rem; }
+.reco-row:hover .reco-play-btn{ background: var(--accent-grad); color:#fff; }
+.reco-more-btn{ margin: 4px 14px 16px; padding:10px; border-radius:11px; background: var(--surface-2); border:1px solid var(--border); font-weight:700; font-size:.82rem; }
+.reco-more-btn:hover{ border-color: var(--accent-a); }
+@media (max-width: 1100px){ body.reco-open .main-wrap{ margin-right:0; } .reco-panel{ width:280px; } }
+@media (max-width: 880px){ .reco-panel{ width:100%; } body.reco-open .main-wrap{ margin-right:0; } }
+
+/* ============ UP NEXT TOAST ============ */
+.upnext-toast{
+  position:fixed; right:20px; bottom: calc(var(--player-h) + 26px); width:270px; background: rgba(22,22,30,.92);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border:1px solid var(--border); border-radius:16px;
+  padding:14px; z-index:80; box-shadow: 0 16px 40px rgba(0,0,0,.4);
+  opacity:0; visibility:hidden; transform: translateY(12px); transition: all .25s ease;
+}
+.upnext-toast.open{ opacity:1; visibility:visible; transform: translateY(0); }
+.upnext-toast .lbl{ font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color: var(--accent-a); margin-bottom:8px; }
+.upnext-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+.upnext-row img{ width:44px; height:44px; border-radius:8px; object-fit:cover; }
+.upnext-row .t{ font-size:.85rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.upnext-row .a{ font-size:.74rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.upnext-actions{ display:flex; gap:8px; }
+.upnext-actions button{ flex:1; padding:8px; border-radius:9px; font-size:.78rem; font-weight:700; }
+.upnext-actions .play-now{ background: var(--accent-grad); color:#fff; }
+.upnext-actions .dismiss{ background: var(--surface-2); border:1px solid var(--border); color:var(--text); }
+@media (max-width:880px){ .upnext-toast{ right:10px; left:10px; width:auto; bottom:150px; } }
 </style>
 </head>
 <body>
@@ -700,6 +744,7 @@
       <button id="prevBtn" title="Previous">⏮</button>
       <button class="play-pause" id="playPauseBtn" title="Play/Pause">▶</button>
       <button id="nextBtn" title="Next">⏭</button>
+      <button class="reco-btn" id="recoToggleBtn" title="Recommendations" data-act="toggle-reco">✨</button>
     </div>
     <div class="seek-row">
       <span class="time" id="curTime">0:00</span>
@@ -737,6 +782,25 @@
       <button id="fpNextBtn" title="Next">⏭</button>
       <button id="fpRepeatBtn" title="Repeat">🔁</button>
     </div>
+  </div>
+</div>
+<!-- ============ RECOMMENDATION PANEL ============ -->
+<aside class="reco-panel" id="recoPanel">
+  <div class="reco-head"><h3>Recommended for You</h3><button class="reco-close" data-act="reco-close">✕</button></div>
+  <div class="reco-list" id="recoList"></div>
+  <button class="reco-more-btn" id="recoMoreBtn" data-act="reco-more">More</button>
+</aside>
+
+<!-- ============ UP NEXT TOAST ============ -->
+<div class="upnext-toast" id="upNextToast">
+  <div class="lbl">Up Next</div>
+  <div class="upnext-row">
+    <img id="upNextThumb" src="" alt="" />
+    <div><div class="t" id="upNextTitle">—</div><div class="a" id="upNextArtist">—</div></div>
+  </div>
+  <div class="upnext-actions">
+    <button class="play-now" data-act="upnext-play">Play Next</button>
+    <button class="dismiss" data-act="upnext-dismiss">Dismiss</button>
   </div>
 </div>
 <nav class="bottom-nav" id="bottomNav"></nav>
@@ -1685,23 +1749,43 @@ function startSeekTimer(){
       return; // real audio drives playback end via onStateChange (ENDED)
     }
     seekPercent += (100 / SONG_DURATION);
-    if(seekPercent >= 100){ if(repeatMode){ seekPercent = 0; } else { playNext(); return; } }
+    if(seekPercent >= 100){ if(repeatMode){ seekPercent = 0; } else { autoAdvance(); return; } }
     updateSeekUI();
   }, 1000);
 }
 function updateSeekUI(){ seekFill.style.width = seekPercent + '%'; curTimeEl.textContent = formatTime(Math.round((seekPercent/100) * SONG_DURATION)); }
 function formatTime(s){ if(!isFinite(s) || s < 0) s = 0; const m = Math.floor(s/60); const sec = String(Math.floor(s%60)).padStart(2,'0'); return `${m}:${sec}`; }
 
-seekBar.addEventListener('click', (e)=>{
-  const rect = seekBar.getBoundingClientRect();
-  const pct = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
+function makeSeekable(barEl, onSeek){
+  let dragging = false;
+  function pctFromEvent(e){
+    const rect = barEl.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+  }
+  function start(e){ dragging = true; onSeek(pctFromEvent(e), false); e.preventDefault(); }
+  function move(e){ if(!dragging) return; onSeek(pctFromEvent(e), false); }
+  function end(e){ if(!dragging) return; dragging = false; onSeek(pctFromEvent(e), true); }
+  barEl.addEventListener('mousedown', start);
+  document.addEventListener('mousemove', move);
+  document.addEventListener('mouseup', end);
+  barEl.addEventListener('touchstart', start, {passive:false});
+  document.addEventListener('touchmove', move, {passive:false});
+  document.addEventListener('touchend', end);
+}
+function handleSeek(pct, commit){
   seekPercent = pct;
+  seekFill.style.width = pct + '%';
   if(isRealSong(currentSong) && ytPlayerReady && ytPlayer && ytPlayer.getDuration){
     const dur = ytPlayer.getDuration() || 0;
-    if(dur > 0) ytPlayer.seekTo((pct/100) * dur, true);
+    curTimeEl.textContent = formatTime((pct/100) * dur);
+    durTimeEl.textContent = formatTime(dur);
+    if(commit && dur > 0) ytPlayer.seekTo((pct/100) * dur, true);
+  } else {
+    curTimeEl.textContent = formatTime(Math.round((pct/100) * SONG_DURATION));
   }
-  updateSeekUI();
-});
+}
+makeSeekable(seekBar, handleSeek);
 function playNext(){
   if(!currentQueue.length) return;
   let idx = isShuffle ? Math.floor(Math.random() * currentQueue.length) : (currentSongIndex + 1) % currentQueue.length;
@@ -2127,7 +2211,7 @@ function initYtPlayer(){
 function onYtPlayerStateChange(e){
   if(!currentSong || !isRealSong(currentSong) || !window.YT) return;
   if(e.data === YT.PlayerState.ENDED){
-    if(repeatMode){ ytPlayer.seekTo(0); ytPlayer.playVideo(); } else playNext();
+    if(repeatMode){ ytPlayer.seekTo(0); ytPlayer.playVideo(); } else autoAdvance();
   } else if(e.data === YT.PlayerState.PLAYING){
     isPlaying = true; playPauseBtn.textContent = '⏸'; refreshAllSongViews();
   } else if(e.data === YT.PlayerState.PAUSED){
@@ -3167,6 +3251,129 @@ document.addEventListener('error', function(e){
     t.src = window.DMH_FALLBACK_IMG;
   }
 }, true);
+/* =========================================================
+   39. RECOMMENDATION SYSTEM (metadata-based, upgradeable later)
+   ========================================================= */
+let recoPanelOpen = false;
+let recoShownCount = 6;
+const RECO_PAGE_SIZE = 6;
+let upNextSong = null;
+let upNextShown = false;
+
+function buildSongCategoryMap(){
+  const map = new Map();
+  Store.categories.forEach(c=> (c.songs||[]).forEach(s=>{
+    const k = songKey(s);
+    if(!map.has(k)) map.set(k, new Set());
+    map.get(k).add(c.name);
+  }));
+  return map;
+}
+function getRecommendations(song, count){
+  if(!song) return [];
+  const pool = allSongsPool();
+  const catMap = buildSongCategoryMap();
+  const songCats = catMap.get(songKey(song)) || new Set();
+  const scored = pool.filter(s=> songKey(s) !== songKey(song)).map(s=>{
+    let score = 0;
+    if(s.artist && song.artist && s.artist.toLowerCase() === song.artist.toLowerCase()) score += 50;
+    const sCats = catMap.get(songKey(s)) || new Set();
+    let overlap = 0; sCats.forEach(c=>{ if(songCats.has(c)) overlap++; });
+    score += overlap * 20;
+    if(isLiked(s)) score += 15;
+    if(myMusic.some(m=> songKey(m)===songKey(s))) score += 10;
+    if(listenHistory.some(h=> h.key===songKey(s))) score += 8;
+    score += Math.random() * 3;
+    return { song: s, score };
+  });
+  scored.sort((a,b)=> b.score - a.score);
+  return scored.slice(0, count).map(x=> x.song);
+}
+function recoRowHTML(song){
+  const key = songKey(song);
+  return `
+    <div class="reco-row" data-act="reco-play" data-key="${esc(key)}">
+      <img src="${esc(song.img)}" alt="${esc(song.title)}" />
+      <div class="info"><div class="t">${esc(song.title)}</div><div class="a">${esc(song.artist)}</div></div>
+      <button class="reco-play-btn" data-act="reco-play" data-key="${esc(key)}">▶</button>
+    </div>`;
+}
+function renderRecoPanel(){
+  const listEl = document.getElementById('recoList');
+  const moreBtn = document.getElementById('recoMoreBtn');
+  if(!currentSong){ listEl.innerHTML = '<div class="empty-note">Play a song to see recommendations.</div>'; moreBtn.style.display='none'; return; }
+  const recs = getRecommendations(currentSong, recoShownCount);
+  setList('reco', recs);
+  listEl.innerHTML = recs.length ? recs.map(recoRowHTML).join('') : '<div class="empty-note">No recommendations yet.</div>';
+  moreBtn.style.display = recs.length >= recoShownCount ? 'block' : 'none';
+}
+function toggleRecoPanel(){
+  recoPanelOpen = !recoPanelOpen;
+  document.body.classList.toggle('reco-open', recoPanelOpen);
+  document.getElementById('recoPanel').classList.toggle('open', recoPanelOpen);
+  document.getElementById('recoToggleBtn').classList.toggle('active', recoPanelOpen);
+  if(recoPanelOpen){ recoShownCount = RECO_PAGE_SIZE; renderRecoPanel(); }
+}
+handlers['toggle-reco'] = ()=> toggleRecoPanel();
+handlers['reco-close'] = ()=> toggleRecoPanel();
+handlers['reco-more'] = ()=>{ recoShownCount += RECO_PAGE_SIZE; renderRecoPanel(); };
+handlers['reco-play'] = (el)=>{
+  const key = el.dataset.key;
+  const arr = songLists['reco'] || [];
+  const song = arr.find(s=> songKey(s) === key);
+  if(!song) return;
+  loadSong(song, 'reco'); setPlaying(true);
+};
+handlers['upnext-play'] = ()=>{ if(upNextSong){ loadSong(upNextSong, 'reco'); setPlaying(true); hideUpNextToast(); } };
+handlers['upnext-dismiss'] = ()=> hideUpNextToast();
+
+function showUpNextToast(song){
+  document.getElementById('upNextThumb').src = song.img;
+  document.getElementById('upNextTitle').textContent = song.title;
+  document.getElementById('upNextArtist').textContent = song.artist;
+  document.getElementById('upNextToast').classList.add('open');
+}
+function hideUpNextToast(){ document.getElementById('upNextToast').classList.remove('open'); }
+
+function checkUpNext(){
+  if(!currentSong || upNextShown) return;
+  let remaining = null;
+  if(isRealSong(currentSong)){
+    if(ytPlayerReady && ytPlayer && ytPlayer.getDuration){
+      const dur = ytPlayer.getDuration() || 0, cur = ytPlayer.getCurrentTime() || 0;
+      if(dur > 0) remaining = dur - cur;
+    }
+  } else {
+    remaining = SONG_DURATION - (seekPercent/100) * SONG_DURATION;
+  }
+  if(remaining !== null && remaining <= 10 && remaining > 0){
+    upNextShown = true;
+    const recs = getRecommendations(currentSong, 6);
+    setList('reco', recs);
+    upNextSong = recs[0] || null;
+    if(upNextSong) showUpNextToast(upNextSong);
+  }
+}
+function manageUpNextTimer(){
+  clearInterval(window._recoUpNextInterval);
+  if(isPlaying) window._recoUpNextInterval = setInterval(checkUpNext, 1000);
+}
+function autoAdvance(){
+  const next = upNextSong;
+  upNextShown = false; upNextSong = null; hideUpNextToast();
+  if(next){ loadSong(next, 'reco'); setPlaying(true); }
+  else { playNext(); }
+}
+
+/* patch existing functions (non-destructive) to hook in recommendations */
+const _activateSongReco = activateSong;
+activateSong = function(song){
+  _activateSongReco(song);
+  upNextShown = false; upNextSong = null; hideUpNextToast();
+  if(recoPanelOpen){ recoShownCount = RECO_PAGE_SIZE; renderRecoPanel(); }
+};
+const _setPlayingReco = setPlaying;
+setPlaying = function(state){ _setPlayingReco(state); manageUpNextTimer(); };
 bootstrap();
 /* =========================================================
    37. FULL-SCREEN "NOW PLAYING" PLAYER — wraps existing logic,
@@ -3222,16 +3429,7 @@ document.getElementById('fpPrevBtn').addEventListener('click', playPrev);
 fpShuffleBtn.addEventListener('click', ()=>{ isShuffle = !isShuffle; shuffleBtn.classList.toggle('active', isShuffle); fpShuffleBtn.classList.toggle('active', isShuffle); });
 fpRepeatBtn.addEventListener('click', ()=>{ repeatMode = !repeatMode; repeatBtn.classList.toggle('active', repeatMode); fpRepeatBtn.classList.toggle('active', repeatMode); });
 fpLikeBtn.addEventListener('click', ()=>{ if(currentSong) toggleLike(currentSong); });
-fpSeekBar.addEventListener('click', (e)=>{
-  const rect = fpSeekBar.getBoundingClientRect();
-  const pct = Math.min(100, Math.max(0, ((e.clientX - rect.left) / rect.width) * 100));
-  seekPercent = pct;
-  if(isRealSong(currentSong) && ytPlayerReady && ytPlayer && ytPlayer.getDuration){
-    const dur = ytPlayer.getDuration() || 0;
-    if(dur > 0) ytPlayer.seekTo((pct/100) * dur, true);
-  }
-  updateSeekUI(); syncFullPlayer();
-});
+makeSeekable(fpSeekBar, (pct, commit)=>{ handleSeek(pct, commit); syncFullPlayer(); });
 
 /* ---- patch existing functions (non-destructive) to also keep full player in sync ---- */
 const _activateSong = activateSong;
@@ -3254,3 +3452,4 @@ setInterval(()=>{ if(fullPlayer.classList.contains('open')) syncFullPlayer(); },
 </script>
 </body>
 </html>
+
