@@ -573,8 +573,10 @@
   .song-line{ width: 220px; }
 }
 /* ============ RECOMMENDATION PANEL ============ */
-.reco-btn{ font-size:1rem; color:var(--muted); transition: color .15s ease; }
-.reco-btn:hover, .reco-btn.active{ color: var(--accent-a); }
+.reco-btn{ font-size:1rem; color:var(--muted); transition: color .15s ease, transform .15s ease; }
+.reco-btn:hover{ transform: scale(1.08); }
+.reco-btn.active, .fp-controls .reco-btn.active{ color: var(--accent-a); }
+.fp-controls .reco-btn{ color:#fff; font-size:1.25rem; }
 .main-wrap{ transition: margin-right .25s ease; }
 body.reco-open .main-wrap{ margin-right: 320px; }
 .reco-panel{
@@ -600,21 +602,25 @@ body.reco-open .main-wrap{ margin-right: 320px; }
 
 /* ============ UP NEXT TOAST ============ */
 .upnext-toast{
-  position:fixed; right:20px; bottom: calc(var(--player-h) + 26px); width:270px; background: rgba(22,22,30,.92);
+  position:fixed; right:20px; bottom: calc(var(--player-h) + 26px); width:300px; background: rgba(22,22,30,.94);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border:1px solid var(--border); border-radius:16px;
-  padding:14px; z-index:80; box-shadow: 0 16px 40px rgba(0,0,0,.4);
+  padding:14px; z-index:80; box-shadow: 0 16px 40px rgba(0,0,0,.4); max-height:340px; display:flex; flex-direction:column;
   opacity:0; visibility:hidden; transform: translateY(12px); transition: all .25s ease;
 }
 .upnext-toast.open{ opacity:1; visibility:visible; transform: translateY(0); }
-.upnext-toast .lbl{ font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color: var(--accent-a); margin-bottom:8px; }
-.upnext-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; }
-.upnext-row img{ width:44px; height:44px; border-radius:8px; object-fit:cover; }
-.upnext-row .t{ font-size:.85rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.upnext-row .a{ font-size:.74rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.upnext-actions{ display:flex; gap:8px; }
-.upnext-actions button{ flex:1; padding:8px; border-radius:9px; font-size:.78rem; font-weight:700; }
-.upnext-actions .play-now{ background: var(--accent-grad); color:#fff; }
-.upnext-actions .dismiss{ background: var(--surface-2); border:1px solid var(--border); color:var(--text); }
+.upnext-toast-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-shrink:0; }
+.upnext-toast .lbl{ font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color: var(--accent-a); }
+.dismiss-x{ font-size:.85rem; color:var(--muted); padding:2px; }
+.dismiss-x:hover{ color:var(--text); }
+.upnext-list{ overflow-y:auto; display:flex; flex-direction:column; gap:6px; }
+.upnext-item{ display:flex; align-items:center; gap:10px; padding:7px; border-radius:10px; cursor:pointer; transition: background .15s ease; position:relative; }
+.upnext-item:hover{ background: var(--surface-2); }
+.upnext-item.is-first{ border:1px solid var(--accent-a); }
+.upnext-item img{ width:42px; height:42px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+.upnext-item .t{ font-size:.82rem; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.upnext-item .a{ font-size:.72rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.upnext-item .play-ic{ font-size:.8rem; color:var(--muted); flex-shrink:0; }
+.upnext-item:hover .play-ic{ color: var(--accent-a); }
 @media (max-width:880px){ .upnext-toast{ right:10px; left:10px; width:auto; bottom:150px; } }
 </style>
 </head>
@@ -744,7 +750,6 @@ body.reco-open .main-wrap{ margin-right: 320px; }
       <button id="prevBtn" title="Previous">⏮</button>
       <button class="play-pause" id="playPauseBtn" title="Play/Pause">▶</button>
       <button id="nextBtn" title="Next">⏭</button>
-      <button class="reco-btn" id="recoToggleBtn" title="Recommendations" data-act="toggle-reco">✨</button>
     </div>
     <div class="seek-row">
       <span class="time" id="curTime">0:00</span>
@@ -781,6 +786,7 @@ body.reco-open .main-wrap{ margin-right: 320px; }
       <button class="fp-play-pause" id="fpPlayPauseBtn" title="Play/Pause">▶</button>
       <button id="fpNextBtn" title="Next">⏭</button>
       <button id="fpRepeatBtn" title="Repeat">🔁</button>
+      <button class="reco-btn" id="recoToggleBtn" title="Recommendations" data-act="toggle-reco">☰</button>
     </div>
   </div>
 </div>
@@ -791,17 +797,13 @@ body.reco-open .main-wrap{ margin-right: 320px; }
   <button class="reco-more-btn" id="recoMoreBtn" data-act="reco-more">More</button>
 </aside>
 
-<!-- ============ UP NEXT TOAST ============ -->
+<!-- ============ UP NEXT TOAST (multi-song) ============ -->
 <div class="upnext-toast" id="upNextToast">
-  <div class="lbl">Up Next</div>
-  <div class="upnext-row">
-    <img id="upNextThumb" src="" alt="" />
-    <div><div class="t" id="upNextTitle">—</div><div class="a" id="upNextArtist">—</div></div>
+  <div class="upnext-toast-head">
+    <div class="lbl">Up Next</div>
+    <button class="dismiss-x" data-act="upnext-dismiss">✕</button>
   </div>
-  <div class="upnext-actions">
-    <button class="play-now" data-act="upnext-play">Play Next</button>
-    <button class="dismiss" data-act="upnext-dismiss">Dismiss</button>
-  </div>
+  <div class="upnext-list" id="upNextList"></div>
 </div>
 <nav class="bottom-nav" id="bottomNav"></nav>
 
@@ -3324,13 +3326,24 @@ handlers['reco-play'] = (el)=>{
   if(!song) return;
   loadSong(song, 'reco'); setPlaying(true);
 };
-handlers['upnext-play'] = ()=>{ if(upNextSong){ loadSong(upNextSong, 'reco'); setPlaying(true); hideUpNextToast(); } };
+let upNextList = [];
+handlers['upnext-play'] = (el)=>{
+  const key = el.dataset.key;
+  const song = upNextList.find(s=> songKey(s) === key) || upNextSong;
+  if(song){ loadSong(song, 'reco'); setPlaying(true); hideUpNextToast(); }
+};
 handlers['upnext-dismiss'] = ()=> hideUpNextToast();
 
-function showUpNextToast(song){
-  document.getElementById('upNextThumb').src = song.img;
-  document.getElementById('upNextTitle').textContent = song.title;
-  document.getElementById('upNextArtist').textContent = song.artist;
+function upNextItemHTML(song, isFirst){
+  return `
+    <div class="upnext-item ${isFirst?'is-first':''}" data-act="upnext-play" data-key="${esc(songKey(song))}">
+      <img src="${esc(song.img)}" alt="${esc(song.title)}" />
+      <div class="info"><div class="t">${esc(song.title)}</div><div class="a">${esc(song.artist)}</div></div>
+      <span class="play-ic">▶</span>
+    </div>`;
+}
+function showUpNextToast(songs){
+  document.getElementById('upNextList').innerHTML = songs.map((s,i)=> upNextItemHTML(s, i===0)).join('');
   document.getElementById('upNextToast').classList.add('open');
 }
 function hideUpNextToast(){ document.getElementById('upNextToast').classList.remove('open'); }
@@ -3348,10 +3361,11 @@ function checkUpNext(){
   }
   if(remaining !== null && remaining <= 10 && remaining > 0){
     upNextShown = true;
-    const recs = getRecommendations(currentSong, 6);
+    const recs = getRecommendations(currentSong, 5);
     setList('reco', recs);
+    upNextList = recs;
     upNextSong = recs[0] || null;
-    if(upNextSong) showUpNextToast(upNextSong);
+    if(upNextList.length) showUpNextToast(upNextList);
   }
 }
 function manageUpNextTimer(){
