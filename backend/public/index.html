@@ -1806,7 +1806,7 @@ function makeSeekable(barEl, onSeek){
     return Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
   }
   function start(e){ dragging = true; onSeek(pctFromEvent(e), false); e.preventDefault(); }
-  function move(e){ if(!dragging) return; e.preventDefault(); onSeek(pctFromEvent(e), false); }
+  function move(e){ if(!dragging) return; if(e.cancelable) e.preventDefault(); onSeek(pctFromEvent(e), false); }
   function end(e){ if(!dragging) return; dragging = false; onSeek(pctFromEvent(e), true); }
   barEl.addEventListener('mousedown', start);
   document.addEventListener('mousemove', move);
@@ -1814,6 +1814,7 @@ function makeSeekable(barEl, onSeek){
   barEl.addEventListener('touchstart', start, {passive:false});
   document.addEventListener('touchmove', move, {passive:false});
   document.addEventListener('touchend', end);
+  document.addEventListener('touchcancel', end);
 }
 function handleSeek(pct, commit){
   seekPercent = pct;
