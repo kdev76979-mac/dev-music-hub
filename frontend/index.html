@@ -274,7 +274,8 @@
   .controls .play-pause{ width:36px; height:36px; border-radius:50%; background: var(--accent-grad); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.9rem; }
   .seek-row{ display:flex; align-items:center; gap:8px; width:100%; max-width:420px; }
   .seek-row .time{ font-size:.7rem; color:var(--muted); width:34px; text-align:center; flex-shrink:0; }
-  .seek-bar{ flex:1; height:4px; background: var(--surface-2); border-radius:4px; position:relative; cursor:pointer; }
+  .seek-bar{ flex:1; height:4px; background: var(--surface-2); border-radius:4px; position:relative; cursor:pointer; touch-action:none; }
+  .seek-bar::before{ content:''; position:absolute; left:0; right:0; top:50%; height:28px; transform:translateY(-50%); }
   .seek-fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background: var(--accent-grad); border-radius:4px; }
   .player-right{ display:flex; align-items:center; justify-content:flex-end; gap:16px; }
   .player-right button{ font-size:.95rem; color:var(--muted); transition: color .15s ease; }
@@ -541,7 +542,8 @@
 .fp-like{ font-size:1.4rem; flex-shrink:0; transition: transform .15s ease; }
 .fp-like:active{ transform: scale(1.3); }
 .fp-seek-row{ width:100%; margin-bottom:8px; }
-.fp-seek-bar{ height:5px; background: rgba(255,255,255,.18); border-radius:6px; position:relative; cursor:pointer; }
+.fp-seek-bar{ height:5px; background: rgba(255,255,255,.18); border-radius:6px; position:relative; cursor:pointer; touch-action:none; }
+.fp-seek-bar::before{ content:''; position:absolute; left:0; right:0; top:50%; height:32px; transform:translateY(-50%); }
 .fp-seek-fill{ position:absolute; left:0; top:0; bottom:0; width:0%; background: var(--accent-grad); border-radius:6px; transition: width .3s linear; }
 .fp-times{ width:100%; display:flex; justify-content:space-between; font-size:.75rem; color:rgba(255,255,255,.55); margin-bottom:26px; }
 .fp-controls{ display:flex; align-items:center; justify-content:center; gap:26px; width:100%; }
@@ -549,6 +551,21 @@
 .fp-controls button:hover{ transform: scale(1.08); }
 .fp-controls button.active{ color: var(--accent-a); }
 .fp-play-pause{ width:70px; height:70px; border-radius:50%; background: var(--accent-grad); display:flex; align-items:center; justify-content:center; font-size:1.6rem; box-shadow: 0 12px 30px rgba(139,92,246,.4); }
+.fp-layout{ position:relative; z-index:2; width:100%; height:100%; display:flex; align-items:center; justify-content:center; overflow-y:auto; padding: 30px 0; gap: 30px; }
+.fp-reco{ flex:0 0 300px; max-width:300px; max-height: 80vh; color:#fff; display:flex; flex-direction:column; }
+.fp-reco-head{ font-size:.9rem; font-weight:800; margin-bottom:14px; flex-shrink:0; color:rgba(255,255,255,.85); }
+.fp-reco-list{ overflow-y:auto; display:flex; flex-direction:column; gap:8px; }
+.fp-reco-row{ display:flex; align-items:center; gap:10px; padding:8px; border-radius:11px; cursor:pointer; transition: background .15s ease; }
+.fp-reco-row:hover{ background: rgba(255,255,255,.08); }
+.fp-reco-row img{ width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+.fp-reco-row .t{ font-size:.82rem; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fp-reco-row .a{ font-size:.72rem; color:rgba(255,255,255,.55); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.fp-reco-play{ width:26px; height:26px; border-radius:50%; background: rgba(255,255,255,.08); color:#fff; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.75rem; }
+.fp-reco-row:hover .fp-reco-play{ background: var(--accent-grad); }
+@media (max-width: 900px){
+  .fp-layout{ flex-direction:column; height:auto; min-height:100%; padding-bottom:30px; }
+  .fp-reco{ max-width:100%; width:100%; flex:none; max-height:none; padding: 0 6px; }
+}
 /* ============ IMAGE FIELD: PREVIEW + REMOVE BUTTON ============ */
 .img-field-preview{ position:relative; }
 .img-field-remove{ position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; background:var(--danger); color:#fff; font-size:.75rem; display:none; align-items:center; justify-content:center; z-index:2; box-shadow:0 2px 8px rgba(0,0,0,.4); }
@@ -622,6 +639,10 @@ body.reco-open .main-wrap{ margin-right: 320px; }
 .upnext-item .play-ic{ font-size:.8rem; color:var(--muted); flex-shrink:0; }
 .upnext-item:hover .play-ic{ color: var(--accent-a); }
 @media (max-width:880px){ .upnext-toast{ right:10px; left:10px; width:auto; bottom:150px; } }
+.pwd-field-wrap{ position:relative; }
+.pwd-field-wrap input{ padding-right:42px !important; }
+.pwd-toggle-eye{ position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:1rem; color:var(--muted); padding:4px; }
+.pwd-toggle-eye:hover{ color:var(--text); }
 </style>
 </head>
 <body>
@@ -767,6 +788,7 @@ body.reco-open .main-wrap{ margin-right: 320px; }
 <!-- ============ FULL-SCREEN NOW PLAYING PLAYER ============ -->
 <div class="full-player" id="fullPlayer">
   <div class="fp-bg" id="fpBg"></div>
+  <div class="fp-layout">
   <div class="fp-inner">
     <div class="fp-top">
       <button class="fp-close" id="fpCloseBtn" title="Close">⌄</button>
@@ -786,16 +808,14 @@ body.reco-open .main-wrap{ margin-right: 320px; }
       <button class="fp-play-pause" id="fpPlayPauseBtn" title="Play/Pause">▶</button>
       <button id="fpNextBtn" title="Next">⏭</button>
       <button id="fpRepeatBtn" title="Repeat">🔁</button>
-      <button class="reco-btn" id="recoToggleBtn" title="Recommendations" data-act="toggle-reco">☰</button>
+        </div>
+  <aside class="fp-reco">
+    <div class="fp-reco-head">Recommended for you</div>
+    <div class="fp-reco-list" id="fpRecoList"></div>
+  </aside>
     </div>
   </div>
 </div>
-<!-- ============ RECOMMENDATION PANEL ============ -->
-<aside class="reco-panel" id="recoPanel">
-  <div class="reco-head"><h3>Recommended for You</h3><button class="reco-close" data-act="reco-close">✕</button></div>
-  <div class="reco-list" id="recoList"></div>
-  <button class="reco-more-btn" id="recoMoreBtn" data-act="reco-more">More</button>
-</aside>
 
 <!-- ============ UP NEXT TOAST (multi-song) ============ -->
 <div class="upnext-toast" id="upNextToast">
@@ -843,8 +863,18 @@ body.reco-open .main-wrap{ margin-right: 320px; }
     <button class="submit-btn" data-act="profile-save">Save Changes</button>
     <hr style="border-color:var(--border,#333);margin:18px 0;" />
     <h4 style="margin:0 0 10px;">Change Password</h4>
-    <div class="field"><label>Current Password</label><input type="password" id="pePwdCurrent" placeholder="Current password" /></div>
-    <div class="field"><label>New Password</label><input type="password" id="pePwdNew" placeholder="At least 8 characters, with a letter and a number" /></div>
+    <div class="field"><label>Current Password</label>
+  <div class="pwd-field-wrap">
+    <input type="password" id="pePwdCurrent" placeholder="Current password" />
+    <button type="button" class="pwd-toggle-eye" data-act="toggle-pwd-eye" data-targetid="pePwdCurrent">👁️</button>
+  </div>
+</div>
+    <div class="field"><label>New Password</label>
+  <div class="pwd-field-wrap">
+    <input type="password" id="pePwdNew" placeholder="At least 8 characters, with a letter and a number" />
+    <button type="button" class="pwd-toggle-eye" data-act="toggle-pwd-eye" data-targetid="pePwdNew">👁️</button>
+  </div>
+</div>
     <div class="form-error" id="pePwdError"></div>
     <button class="submit-btn" data-act="change-password-save">Update Password</button>
   </div>
@@ -915,7 +945,12 @@ body.reco-open .main-wrap{ margin-right: 320px; }
         <div class="field"><label>Mobile Number *</label><input type="tel" id="loginMobile" placeholder="Your mobile number" /></div>
       </div>
       <div class="field"><label>Email or Mobile *</label><input type="text" id="loginEmail" placeholder="you@example.com" /></div>
-      <div class="field"><label>Password *</label><input type="password" id="loginPassword" placeholder="At least 8 characters, with a letter and a number" /></div>
+      <div class="field"><label>Password *</label>
+  <div class="pwd-field-wrap">
+    <input type="password" id="loginPassword" placeholder="At least 8 characters, with a letter and a number" />
+    <button type="button" class="pwd-toggle-eye" data-act="toggle-pwd-eye" data-targetid="loginPassword">👁️</button>
+  </div>
+</div>
       <div class="form-error" id="loginError"></div>
       <button class="submit-btn" data-act="user-login-submit" id="userAuthSubmitBtn">Sign In</button>
     </div>
@@ -927,7 +962,12 @@ body.reco-open .main-wrap{ margin-right: 320px; }
         <button class="role-tab" data-subrole="manager">Manager</button>
       </div>
       <div class="field"><label>Email or Mobile *</label><input type="text" id="adminIdentifier" placeholder="Email or mobile number" /></div>
-      <div class="field"><label>Password *</label><input type="password" id="adminPassword" placeholder="Password" /></div>
+      <div class="field"><label>Password *</label>
+  <div class="pwd-field-wrap">
+    <input type="password" id="adminPassword" placeholder="Password" />
+    <button type="button" class="pwd-toggle-eye" data-act="toggle-pwd-eye" data-targetid="adminPassword">👁️</button>
+  </div>
+</div>
       <div class="form-error" id="adminLoginError"></div>
       <button class="submit-btn" data-act="admin-login-submit">Sign In</button>
     </div>
@@ -1766,7 +1806,7 @@ function makeSeekable(barEl, onSeek){
     return Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
   }
   function start(e){ dragging = true; onSeek(pctFromEvent(e), false); e.preventDefault(); }
-  function move(e){ if(!dragging) return; onSeek(pctFromEvent(e), false); }
+  function move(e){ if(!dragging) return; e.preventDefault(); onSeek(pctFromEvent(e), false); }
   function end(e){ if(!dragging) return; dragging = false; onSeek(pctFromEvent(e), true); }
   barEl.addEventListener('mousedown', start);
   document.addEventListener('mousemove', move);
@@ -3388,6 +3428,16 @@ activateSong = function(song){
 };
 const _setPlayingReco = setPlaying;
 setPlaying = function(state){ _setPlayingReco(state); manageUpNextTimer(); };
+/* =========================================================
+   40. PASSWORD SHOW/HIDE TOGGLE
+   ========================================================= */
+handlers['toggle-pwd-eye'] = (el)=>{
+  const input = document.getElementById(el.dataset.targetid);
+  if(!input) return;
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  el.textContent = showing ? '👁️' : '🙈';
+};
 bootstrap();
 /* =========================================================
    37. FULL-SCREEN "NOW PLAYING" PLAYER — wraps existing logic,
