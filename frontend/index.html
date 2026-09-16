@@ -643,6 +643,7 @@ body.reco-open .main-wrap{ margin-right: 320px; }
 .pwd-field-wrap input{ padding-right:42px !important; }
 .pwd-toggle-eye{ position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:1rem; color:var(--muted); padding:4px; }
 .pwd-toggle-eye:hover{ color:var(--text); }
+.fp-reco, .fp-reco-title, .fp-reco-head, #fpRecoPanel, #fpRecoTitle { display: none !important; }
 </style>
 </head>
 <body>
@@ -3436,7 +3437,7 @@ handlers['toggle-pwd-eye'] = (el)=>{
   if(!input) return;
   const showing = input.type === 'text';
   input.type = showing ? 'password' : 'text';
-  el.textContent = showing ? '😎' : '🧐';
+  el.textContent = showing ? '😎' : '☀️';
 };
 bootstrap();
 /* =========================================================
